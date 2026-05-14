@@ -26,6 +26,7 @@ import coil.ImageLoader
 import coil.decode.VideoFrameDecoder
 import com.ironsource.mediationsdk.IronSource
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.webstudio.lumagallery.ui.navigation.Screen
 import com.webstudio.lumagallery.ui.screens.*
@@ -73,23 +74,34 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    listOf(
+                val permissions = when {
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> listOf(
+                        Manifest.permission.READ_MEDIA_IMAGES,
+                        Manifest.permission.READ_MEDIA_VIDEO,
+                        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                    )
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> listOf(
                         Manifest.permission.READ_MEDIA_IMAGES,
                         Manifest.permission.READ_MEDIA_VIDEO
                     )
-                } else {
-                    listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    else -> listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
                 }
 
                 val permissionState = rememberMultiplePermissionsState(permissions)
-                LaunchedEffect(permissionState.allPermissionsGranted) {
-                    if (permissionState.allPermissionsGranted) {
+                // On Android 14+ "Allow selected" grants only READ_MEDIA_VISUAL_USER_SELECTED;
+                // accept any granted visual-media permission as enough to proceed.
+                val hasMediaAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    permissionState.permissions.any { it.status.isGranted }
+                } else {
+                    permissionState.allPermissionsGranted
+                }
+                LaunchedEffect(hasMediaAccess) {
+                    if (hasMediaAccess) {
                         viewModel.loadPhotos()
                     }
                 }
 
-                if (!permissionState.allPermissionsGranted) {
+                if (!hasMediaAccess) {
                     PermissionScreen(
                         onPermissionGranted = {},
                         modifier = Modifier.fillMaxSize()
