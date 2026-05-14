@@ -74,4 +74,4 @@ See `CLAUDE.md` for architecture details and contributor conventions.
 
 ## License
 
-All rights reserved.
+Released under the [MIT License](LICENSE).
