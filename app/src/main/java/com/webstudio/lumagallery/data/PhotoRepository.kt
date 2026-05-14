@@ -13,6 +13,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.edit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -364,7 +365,7 @@ class PhotoRepository(private val context: Context) {
     fun toggleFavorite(photoId: Long) {
         val key = "favorite_$photoId"
         val isFav = prefs.getBoolean(key, false)
-        prefs.edit().putBoolean(key, !isFav).apply()
+        prefs.edit { putBoolean(key, !isFav) }
         invalidateCache()
     }
 
@@ -375,7 +376,7 @@ class PhotoRepository(private val context: Context) {
     fun toggleHidden(photoId: Long) {
         val key = "hidden_$photoId"
         val isHid = prefs.getBoolean(key, false)
-        prefs.edit().putBoolean(key, !isHid).apply()
+        prefs.edit { putBoolean(key, !isHid) }
         invalidateCache()
     }
 
@@ -384,18 +385,18 @@ class PhotoRepository(private val context: Context) {
     }
 
     fun moveToRecycleBin(photoId: Long) {
-        prefs.edit()
-            .putBoolean("recycle_$photoId", true)
-            .putLong("deleted_at_$photoId", System.currentTimeMillis())
-            .apply()
+        prefs.edit {
+            putBoolean("recycle_$photoId", true)
+            putLong("deleted_at_$photoId", System.currentTimeMillis())
+        }
         invalidateCache()
     }
 
     fun restoreFromRecycleBin(photoId: Long) {
-        prefs.edit()
-            .remove("recycle_$photoId")
-            .remove("deleted_at_$photoId")
-            .apply()
+        prefs.edit {
+            remove("recycle_$photoId")
+            remove("deleted_at_$photoId")
+        }
         invalidateCache()
     }
 
@@ -409,10 +410,10 @@ class PhotoRepository(private val context: Context) {
                 try {
                     val deleted = context.contentResolver.delete(photoUri, null, null) > 0
                     if (deleted) {
-                        prefs.edit()
-                            .remove("recycle_$photoId")
-                            .remove("deleted_at_$photoId")
-                            .apply()
+                        prefs.edit {
+                            remove("recycle_$photoId")
+                            remove("deleted_at_$photoId")
+                        }
                         invalidateCache()
                         Log.d(TAG, "Permanently deleted: $photoUri")
                         DeleteResult.Success
@@ -453,10 +454,10 @@ class PhotoRepository(private val context: Context) {
                     try {
                         val deleted = context.contentResolver.delete(photo.uri, null, null) > 0
                         if (deleted) {
-                            prefs.edit()
-                                .remove("recycle_${photo.id}")
-                                .remove("deleted_at_${photo.id}")
-                                .apply()
+                            prefs.edit {
+                                remove("recycle_${photo.id}")
+                                remove("deleted_at_${photo.id}")
+                            }
                         } else {
                             anyFailed = true
                         }
@@ -508,11 +509,11 @@ class PhotoRepository(private val context: Context) {
     fun setHiddenPassword(password: String) {
         val salt = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val hash = pbkdf2Hash(password, salt)
-        prefs.edit()
-            .putString("hidden_password_hash", Base64.encodeToString(hash, Base64.NO_WRAP))
-            .putString("hidden_password_salt", Base64.encodeToString(salt, Base64.NO_WRAP))
-            .remove("hidden_password")
-            .apply()
+        prefs.edit {
+            putString("hidden_password_hash", Base64.encodeToString(hash, Base64.NO_WRAP))
+            putString("hidden_password_salt", Base64.encodeToString(salt, Base64.NO_WRAP))
+            remove("hidden_password")
+        }
     }
 
     fun verifyHiddenPassword(password: String): Boolean {
@@ -763,12 +764,12 @@ class PhotoRepository(private val context: Context) {
                 if (copied) {
                     val deleted = context.contentResolver.delete(photo.uri, null, null) > 0
                     if (deleted) {
-                        prefs.edit()
-                            .remove("recycle_${photo.id}")
-                            .remove("deleted_at_${photo.id}")
-                            .remove("favorite_${photo.id}")
-                            .remove("hidden_${photo.id}")
-                            .apply()
+                        prefs.edit {
+                            remove("recycle_${photo.id}")
+                            remove("deleted_at_${photo.id}")
+                            remove("favorite_${photo.id}")
+                            remove("hidden_${photo.id}")
+                        }
                         invalidateCache()
                         WriteResult.Success
                     } else WriteResult.Failure
@@ -800,12 +801,12 @@ class PhotoRepository(private val context: Context) {
                 Log.e(TAG, "applyMove: delete returned 0 for ${photo.uri}; new copy at $newUri left in place")
                 return@withContext false
             }
-            prefs.edit()
-                .remove("recycle_${photo.id}")
-                .remove("deleted_at_${photo.id}")
-                .remove("favorite_${photo.id}")
-                .remove("hidden_${photo.id}")
-                .apply()
+            prefs.edit {
+                remove("recycle_${photo.id}")
+                remove("deleted_at_${photo.id}")
+                remove("favorite_${photo.id}")
+                remove("hidden_${photo.id}")
+            }
             invalidateCache()
             true
         } catch (e: Exception) {
@@ -816,15 +817,14 @@ class PhotoRepository(private val context: Context) {
 
     fun clearPrefsForIds(ids: List<Long>) {
         if (ids.isEmpty()) return
-        val editor = prefs.edit()
-        ids.forEach { id ->
-            editor
-                .remove("recycle_$id")
-                .remove("deleted_at_$id")
-                .remove("favorite_$id")
-                .remove("hidden_$id")
+        prefs.edit {
+            ids.forEach { id ->
+                remove("recycle_$id")
+                remove("deleted_at_$id")
+                remove("favorite_$id")
+                remove("hidden_$id")
+            }
         }
-        editor.apply()
         invalidateCache()
     }
 

@@ -1,10 +1,3 @@
 <resources>
     <string name="app_name">Luma Gallery</string>
-    <string name="photos">Photos</string>
-    <string name="albums">Albums</string>
-    <string name="permission_required">Storage permission required</string>
-    <string name="grant_permission">Grant Permission</string>
-    <string name="permission_denied">Permission denied. Cannot access photos.</string>
-    <string name="no_photos">No photos found</string>
-    <string name="loading">Loading photos…</string>
 </resources>

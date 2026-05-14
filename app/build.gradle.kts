@@ -70,36 +70,36 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.9.6")
+    implementation(libs.androidx.navigation.compose)
 
     // ViewModel
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Image & Video Loading - Coil
-    implementation("io.coil-kt:coil-compose:2.7.0")
-    implementation("io.coil-kt:coil-video:2.7.0")
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     // ExoPlayer for video playback
-    implementation("androidx.media3:media3-exoplayer:1.5.0")
-    implementation("androidx.media3:media3-ui:1.5.0")
-    implementation("androidx.media3:media3-common:1.5.0")
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.common)
 
     // Accompanist (for permissions and system UI)
-    implementation("com.google.accompanist:accompanist-permissions:0.37.3")
-    implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
+    implementation(libs.accompanist.permissions)
+    implementation(libs.accompanist.systemuicontroller)
 
     // Lottie for animations
-    implementation("com.airbnb.android:lottie-compose:6.7.1")
+    implementation(libs.lottie.compose)
 
     // Zoomable for pinch-to-zoom
-    implementation("me.saket.telephoto:zoomable-image-coil:0.19.0")
+    implementation(libs.telephoto.zoomable.image.coil)
 
     // Unity LevelPlay (IronSource) — banner ads
-    implementation("com.ironsource.sdk:mediationsdk:8.4.0")
+    implementation(libs.ironsource.mediationsdk)
 
     //Test & Debug
     testImplementation(libs.junit)

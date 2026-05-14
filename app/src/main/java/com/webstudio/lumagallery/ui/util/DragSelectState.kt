@@ -6,8 +6,8 @@ import androidx.compose.ui.geometry.Rect
 
 class DragSelectState {
     var isDragging by mutableStateOf(false)
-    var dragStartIndex by mutableStateOf(-1)
-    var dragCurrentIndex by mutableStateOf(-1)
+    var dragStartIndex by mutableIntStateOf(-1)
+    var dragCurrentIndex by mutableIntStateOf(-1)
     val itemBounds = mutableStateMapOf<Int, Rect>()
 
     fun startDrag(index: Int) {

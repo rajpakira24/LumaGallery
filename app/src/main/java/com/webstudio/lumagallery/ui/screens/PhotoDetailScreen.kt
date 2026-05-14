@@ -63,6 +63,7 @@ fun PhotoDetailScreen(
     photo: Photo,
     allPhotos: List<Photo>,
     onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onToggleFavorite: (Long) -> Unit = {},
     onToggleHidden: (Long) -> Unit = {},
     onSetHiddenPassword: (String) -> Unit = {},
@@ -75,8 +76,7 @@ fun PhotoDetailScreen(
     pendingWriteIntent: PendingIntent? = null,
     onWriteIntentConsumed: () -> Unit = {},
     onWriteGranted: () -> Unit = {},
-    onWriteDenied: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onWriteDenied: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -588,8 +588,8 @@ private fun ActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    tint: Color = Color.White,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tint: Color = Color.White
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,

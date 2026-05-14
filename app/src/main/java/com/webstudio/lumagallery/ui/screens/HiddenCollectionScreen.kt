@@ -48,9 +48,9 @@ fun HiddenCollectionScreen(
     photos: List<Photo>,
     onPhotoClick: (Photo) -> Unit,
     onNavigateBack: () -> Unit,
-    isUnlocked: Boolean = false,
     onUnlock: suspend (String) -> Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isUnlocked: Boolean = false
 ) {
     var showPasswordDialog by remember { mutableStateOf(!isUnlocked) }
     var isContentUnlocked by remember { mutableStateOf(isUnlocked) }

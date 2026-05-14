@@ -52,10 +52,10 @@ fun RecycleBinScreen(
     onPermanentDelete: (RecycleBinItem) -> Unit,
     onBulkRestore: (List<RecycleBinItem>) -> Unit,
     onBulkDelete: (List<RecycleBinItem>) -> Unit,
+    modifier: Modifier = Modifier,
     pendingDeleteIntent: PendingIntent? = null,
     onDeleteIntentConsumed: () -> Unit = {},
-    onDeleteGranted: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onDeleteGranted: () -> Unit = {}
 ) {
     var selectedItems by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var showDeleteDialog by remember { mutableStateOf(false) }

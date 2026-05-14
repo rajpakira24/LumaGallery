@@ -2,6 +2,7 @@ package com.webstudio.lumagallery.ui.screens
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -46,7 +47,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import android.app.Activity
 import android.widget.FrameLayout
 import com.ironsource.mediationsdk.ISBannerSize
 import com.ironsource.mediationsdk.IronSource
@@ -69,6 +69,7 @@ import com.webstudio.lumagallery.ui.viewmodel.ViewMode
 @Composable
 fun GalleryScreen(
     uiState: GalleryUiState,
+    modifier: Modifier = Modifier,
     onFolderClick: (String) -> Unit = {},
     onPhotoClick: (Long) -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
@@ -77,8 +78,7 @@ fun GalleryScreen(
     onHiddenCollectionClick: () -> Unit = {},
     onBulkMoveToRecycleBin: (Set<Long>) -> Unit = {},
     onBulkToggleHidden: (Set<Long>) -> Unit = {},
-    onRefresh: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onRefresh: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
@@ -376,9 +376,9 @@ fun GalleryScreen(
 private fun PhotosTabContent(
     dateGroups: List<DateGroup>,
     onPhotoClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
     selectedPhotoIds: Set<Long> = emptySet(),
-    onDragSelectionChange: (Set<Long>) -> Unit = {},
-    modifier: Modifier = Modifier
+    onDragSelectionChange: (Set<Long>) -> Unit = {}
 ) {
     val dragSelectState = remember { DragSelectState() }
     val flatPhotos = remember(dateGroups) { dateGroups.flatMap { it.photos } }
@@ -1053,7 +1053,7 @@ private fun SelectionActionBar(
 
 @Composable
 private fun IronSourceBannerAd() {
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current ?: return
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
