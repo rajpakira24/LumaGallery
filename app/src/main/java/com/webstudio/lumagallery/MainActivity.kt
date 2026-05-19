@@ -24,15 +24,12 @@ import androidx.navigation.navArgument
 import coil.Coil
 import coil.ImageLoader
 import coil.decode.VideoFrameDecoder
-import com.unity3d.mediation.LevelPlay
-import com.unity3d.mediation.LevelPlayConfiguration
-import com.unity3d.mediation.LevelPlayInitError
-import com.unity3d.mediation.LevelPlayInitListener
-import com.unity3d.mediation.LevelPlayInitRequest
+import com.unity3d.ads.IUnityAdsInitializationListener
+import com.unity3d.ads.UnityAds
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.webstudio.lumagallery.ads.LevelPlayAdState
+import com.webstudio.lumagallery.ads.UnityAdState
 import com.webstudio.lumagallery.ads.RewardedAdGate
 import com.webstudio.lumagallery.ui.navigation.Screen
 import com.webstudio.lumagallery.ui.screens.*
@@ -54,21 +51,16 @@ class MainActivity : ComponentActivity() {
                 .build()
         )
 
-        val levelPlayAppKey = if (BuildConfig.DEBUG && BuildConfig.TEST_IRONSOURCE_APP_KEY.isNotBlank()) {
-            BuildConfig.TEST_IRONSOURCE_APP_KEY
-        } else {
-            BuildConfig.IRONSOURCE_APP_KEY
-        }
-        LevelPlay.init(
+        UnityAds.initialize(
             this,
-            LevelPlayInitRequest.Builder(levelPlayAppKey).build(),
-            object : LevelPlayInitListener {
-                override fun onInitSuccess(configuration: LevelPlayConfiguration) {
-                    LevelPlayAdState.markInitialized()
-                    RewardedAdGate.configure(BuildConfig.IRONSOURCE_REWARDED_AD_UNIT_ID)
+            BuildConfig.UNITY_GAME_ID,
+            BuildConfig.DEBUG,
+            object : IUnityAdsInitializationListener {
+                override fun onInitializationComplete() {
+                    UnityAdState.markInitialized()
+                    RewardedAdGate.configure(BuildConfig.UNITY_REWARDED_PLACEMENT_ID)
                 }
-
-                override fun onInitFailed(error: LevelPlayInitError) = Unit
+                override fun onInitializationFailed(error: UnityAds.UnityAdsInitializationError, message: String) = Unit
             }
         )
 

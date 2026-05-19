@@ -47,13 +47,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import com.unity3d.mediation.LevelPlayAdError
-import com.unity3d.mediation.LevelPlayAdInfo
-import com.unity3d.mediation.LevelPlayAdSize
-import com.unity3d.mediation.banner.LevelPlayBannerAdView
-import com.unity3d.mediation.banner.LevelPlayBannerAdViewListener
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import com.unity3d.services.banners.BannerErrorInfo
+import com.unity3d.services.banners.BannerView
+import com.unity3d.services.banners.UnityBannerSize
 import com.webstudio.lumagallery.BuildConfig
-import com.webstudio.lumagallery.ads.LevelPlayAdState
+import com.webstudio.lumagallery.ads.UnityAdState
 import com.webstudio.lumagallery.data.DateGroup
 import com.webstudio.lumagallery.data.FolderGroup
 import com.webstudio.lumagallery.data.Photo
@@ -121,7 +122,7 @@ fun GalleryScreen(
                     onCancel = { selectedPhotoIds = emptySet() }
                 )
             } else {
-                IronSourceBannerAd()
+                UnityBannerAd()
             }
         },
         topBar = {
@@ -1053,39 +1054,38 @@ private fun SelectionActionBar(
 }
 
 @Composable
-private fun IronSourceBannerAd() {
+private fun UnityBannerAd() {
     val context = LocalContext.current
-    val initialized by LevelPlayAdState.initialized.collectAsStateWithLifecycle()
-    val bannerAdUnitId = BuildConfig.IRONSOURCE_BANNER_AD_UNIT_ID
-    if (!initialized || bannerAdUnitId.isBlank()) return
+    val initialized by UnityAdState.initialized.collectAsStateWithLifecycle()
+    val placementId = BuildConfig.UNITY_BANNER_PLACEMENT_ID
+    if (!initialized || placementId.isBlank()) return
 
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
             .height(50.dp),
-        factory = { _ ->
-            val adConfig = LevelPlayBannerAdView.Config.Builder()
-                .setAdSize(LevelPlayAdSize.BANNER)
-                .build()
-            LevelPlayBannerAdView(context, bannerAdUnitId, adConfig).apply {
-                setBannerListener(object : LevelPlayBannerAdViewListener {
-                    override fun onAdLoaded(adInfo: LevelPlayAdInfo) = Unit
-                    override fun onAdLoadFailed(error: LevelPlayAdError) = Unit
-                    override fun onAdClicked(adInfo: LevelPlayAdInfo) = Unit
-                    override fun onAdLeftApplication(adInfo: LevelPlayAdInfo) = Unit
-                    override fun onAdDisplayed(adInfo: LevelPlayAdInfo) = Unit
-                    override fun onAdDisplayFailed(
-                        adInfo: LevelPlayAdInfo,
-                        error: LevelPlayAdError
-                    ) = Unit
-                    override fun onAdExpanded(adInfo: LevelPlayAdInfo) = Unit
-                    override fun onAdCollapsed(adInfo: LevelPlayAdInfo) = Unit
-                })
-                loadAd()
+        factory = { ctx ->
+            val activity = ctx.findActivity()
+            if (activity == null) {
+                android.view.View(ctx)
+            } else {
+                BannerView(activity, placementId, UnityBannerSize(320, 50)).apply {
+                    listener = object : BannerView.IListener {
+                        override fun onBannerLoaded(bannerAdView: BannerView) = Unit
+                        override fun onBannerFailedToLoad(bannerAdView: BannerView, errorInfo: BannerErrorInfo) = Unit
+                        override fun onBannerClick(bannerAdView: BannerView) = Unit
+                        override fun onBannerLeftApplication(bannerAdView: BannerView) = Unit
+                    }
+                    load()
+                }
             }
         },
-        onRelease = { view ->
-            (view as? LevelPlayBannerAdView)?.destroy()
-        }
+        onRelease = { view -> (view as? BannerView)?.destroy() }
     )
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

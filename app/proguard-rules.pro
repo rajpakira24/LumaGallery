@@ -66,12 +66,10 @@
 -keep class com.google.accompanist.** { *; }
 -dontwarn com.google.accompanist.**
 
-# --- IronSource / Unity LevelPlay ---
--keep class com.ironsource.** { *; }
--keep interface com.ironsource.** { *; }
+# --- Unity Ads ---
 -keep class com.unity3d.** { *; }
+-keep class com.unity3d.services.** { *; }
 -keep class com.google.android.gms.** { *; }
--dontwarn com.ironsource.**
 -dontwarn com.unity3d.**
 -dontwarn com.google.android.gms.**
 
