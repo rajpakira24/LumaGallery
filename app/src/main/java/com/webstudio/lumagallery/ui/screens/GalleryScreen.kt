@@ -2,7 +2,6 @@ package com.webstudio.lumagallery.ui.screens
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -44,15 +43,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import android.widget.FrameLayout
-import com.ironsource.mediationsdk.ISBannerSize
-import com.ironsource.mediationsdk.IronSource
-import com.ironsource.mediationsdk.adunit.adapter.utility.AdInfo
-import com.ironsource.mediationsdk.logger.IronSourceError
-import com.ironsource.mediationsdk.sdk.LevelPlayBannerListener
+import com.unity3d.mediation.LevelPlayAdError
+import com.unity3d.mediation.LevelPlayAdInfo
+import com.unity3d.mediation.LevelPlayAdSize
+import com.unity3d.mediation.banner.LevelPlayBannerAdView
+import com.unity3d.mediation.banner.LevelPlayBannerAdViewListener
+import com.webstudio.lumagallery.BuildConfig
+import com.webstudio.lumagallery.ads.LevelPlayAdState
 import com.webstudio.lumagallery.data.DateGroup
 import com.webstudio.lumagallery.data.FolderGroup
 import com.webstudio.lumagallery.data.Photo
@@ -1053,23 +1054,38 @@ private fun SelectionActionBar(
 
 @Composable
 private fun IronSourceBannerAd() {
-    val activity = LocalActivity.current ?: return
+    val context = LocalContext.current
+    val initialized by LevelPlayAdState.initialized.collectAsStateWithLifecycle()
+    val bannerAdUnitId = BuildConfig.IRONSOURCE_BANNER_AD_UNIT_ID
+    if (!initialized || bannerAdUnitId.isBlank()) return
+
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
             .height(50.dp),
         factory = { _ ->
-            IronSource.createBanner(activity, ISBannerSize.BANNER)?.apply {
-                levelPlayBannerListener = object : LevelPlayBannerListener {
-                    override fun onAdLoaded(adInfo: AdInfo) {}
-                    override fun onAdLoadFailed(error: IronSourceError) {}
-                    override fun onAdClicked(adInfo: AdInfo) {}
-                    override fun onAdLeftApplication(adInfo: AdInfo) {}
-                    override fun onAdScreenPresented(p0: AdInfo?) {}
-                    override fun onAdScreenDismissed(p0: AdInfo?) {}
-                }
-                IronSource.loadBanner(this)
-            } ?: FrameLayout(activity)
+            val adConfig = LevelPlayBannerAdView.Config.Builder()
+                .setAdSize(LevelPlayAdSize.BANNER)
+                .build()
+            LevelPlayBannerAdView(context, bannerAdUnitId, adConfig).apply {
+                setBannerListener(object : LevelPlayBannerAdViewListener {
+                    override fun onAdLoaded(adInfo: LevelPlayAdInfo) = Unit
+                    override fun onAdLoadFailed(error: LevelPlayAdError) = Unit
+                    override fun onAdClicked(adInfo: LevelPlayAdInfo) = Unit
+                    override fun onAdLeftApplication(adInfo: LevelPlayAdInfo) = Unit
+                    override fun onAdDisplayed(adInfo: LevelPlayAdInfo) = Unit
+                    override fun onAdDisplayFailed(
+                        adInfo: LevelPlayAdInfo,
+                        error: LevelPlayAdError
+                    ) = Unit
+                    override fun onAdExpanded(adInfo: LevelPlayAdInfo) = Unit
+                    override fun onAdCollapsed(adInfo: LevelPlayAdInfo) = Unit
+                })
+                loadAd()
+            }
+        },
+        onRelease = { view ->
+            (view as? LevelPlayBannerAdView)?.destroy()
         }
     )
 }

@@ -422,6 +422,9 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     fun setHiddenPassword(password: String) = repository.setHiddenPassword(password)
 
+    /** Public entry point used by the photo editor when a new file has been saved into MediaStore. */
+    fun onMediaCreated() = reloadGalleryInBackground()
+
     // Reloads date/folder groups in the background after a restore, without showing Loading state
     private fun reloadGalleryInBackground() {
         viewModelScope.launch {

@@ -72,6 +72,7 @@ fun PhotoDetailScreen(
     onRenamePhoto: (Long, Uri, String) -> Unit = { _, _, _ -> },
     onCopyPhoto: (Photo, String) -> Unit = { _, _ -> },
     onMovePhoto: (Photo, String) -> Unit = { _, _ -> },
+    onEditPhoto: (Long) -> Unit = {},
     folderGroups: List<FolderGroup> = emptyList(),
     pendingWriteIntent: PendingIntent? = null,
     onWriteIntentConsumed: () -> Unit = {},
@@ -398,6 +399,16 @@ fun PhotoDetailScreen(
                                 onClick = { showMoreMenu = false; showDetailsSheet = true },
                                 leadingIcon = { Icon(Icons.Default.Info, null) }
                             )
+                            if (!currentPhoto.isVideo) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit") },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        onEditPhoto(currentPhoto.id)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Tune, null) }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Rename") },
                                 onClick = { showMoreMenu = false; showRenameDialog = true },

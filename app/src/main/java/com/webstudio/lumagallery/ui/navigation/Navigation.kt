@@ -20,4 +20,8 @@ sealed class Screen(val route: String) {
     object RecycleBin : Screen("recycle_bin")
 
     object HiddenCollection : Screen("hidden_collection")
+
+    object EditPhoto : Screen("edit_photo/{photoId}") {
+        fun createRoute(photoId: Long) = "edit_photo/$photoId"
+    }
 }

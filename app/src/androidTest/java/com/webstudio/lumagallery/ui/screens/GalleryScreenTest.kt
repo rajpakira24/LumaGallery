@@ -1,6 +1,7 @@
 package com.webstudio.lumagallery.ui.screens
 
 import android.net.Uri
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4

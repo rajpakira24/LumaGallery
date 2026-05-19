@@ -75,6 +75,37 @@
 -dontwarn com.unity3d.**
 -dontwarn com.google.android.gms.**
 
+# --- ML Kit (Subject Segmentation) ---
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.odml.** { *; }
+-dontwarn com.google.mlkit.**
+
+# --- Retrofit / OkHttp ---
+-keep class retrofit2.** { *; }
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-dontwarn retrofit2.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# --- kotlinx.serialization ---
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.SerializationKt
+-keep,includedescriptorclasses class com.webstudio.lumagallery.**$$serializer { *; }
+-keepclassmembers class com.webstudio.lumagallery.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.webstudio.lumagallery.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# --- uCrop ---
+-keep class com.yalantis.ucrop.** { *; }
+-dontwarn com.yalantis.ucrop.**
+
 # Strip verbose log calls from release builds (paths and queries must not leak)
 -assumenosideeffects class android.util.Log {
     public static *** d(...);

@@ -57,13 +57,13 @@ MediaStore (system)
 - `toggleFavorite()` rebuilds the special Favorites `FolderGroup` inline as part of the optimistic update so the Collections tab reflects the change immediately without a reload.
 
 **UI layer** (`ui/screens/`):
-- Each screen is a top-level `@Composable` receiving props from `MainActivity`; the ViewModel is not accessed directly inside screens.
+- Gallery/detail/auxiliary screens are top-level `@Composable`s receiving props from `MainActivity` — no ViewModel access inside. Exception: `EditScreen` calls `viewModel()` directly because it has its own isolated `EditViewModel`.
 - `GalleryScreen` hosts two tabs (Photos / Collections) and the IronSource banner ad at the bottom.
 - `PhotoDetailScreen` has a `DropdownMenu` with: Details (ModalBottomSheet), Rename (AlertDialog), Set as (system chooser), Copy to / Move to (folder picker AlertDialog using `folderGroups`). A `LaunchedEffect(allPhotos.size)` navigates back when the current photo disappears from the list; it uses a `hasSeenCurrentPhoto` guard to prevent spurious back-navigation on the initial load.
 - `ui/util/DragSelectState` tracks drag-selection state. `itemBounds` stores `Rect` in **root coordinate space** (via `boundsInRoot()`), not parent-relative.
 
 **Navigation** (`ui/navigation/Navigation.kt`):
-- Routes: `gallery`, `category_detail/{categoryName}`, `photo_detail/{photoId}`, `recycle_bin`, `hidden_collection`.
+- Routes: `gallery`, `category_detail/{categoryName}`, `photo_detail/{photoId}`, `recycle_bin`, `hidden_collection`, `edit_photo/{photoId}`.
 - Folder paths are URL-encoded (`Uri.encode`) before passing as nav arguments to handle `/` and special characters.
 
 **Core data models** (`data/Photo.kt`):
@@ -79,13 +79,41 @@ MediaStore (system)
 - **Media permissions differ by API level**: `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` for API 33+; `READ_EXTERNAL_STORAGE` for older.
 - **Hidden collection password** is PBKDF2WithHmacSHA256 (600k iterations, 32-byte salt) stored under keys `hidden_password_hash` and `hidden_password_salt` in SharedPreferences. `verifyHiddenPassword` is a `suspend fun` (runs on `Dispatchers.Default`) and returns `false` when no password exists — it never auto-sets. Use `setHiddenPassword()` explicitly for first-time setup.
 - **Photos tab grid** uses `Column { photos.chunked(3).forEach { Row { ... } } }` inside `LazyColumn` items — do **not** replace with nested `LazyVerticalGrid` (causes height-constraint clipping).
-- **Unity LevelPlay (IronSource)** app key is read from `local.properties` via `BuildConfig.IRONSOURCE_APP_KEY` — do not hardcode it back into `IronSource.init()`.
+- **Unity LevelPlay (IronSource)** app key is read from `local.properties` via `BuildConfig.IRONSOURCE_APP_KEY` — do not hardcode it back into `IronSource.init()`. Rewarded ad unit ID: `IRONSOURCE_REWARDED_AD_UNIT_ID` (has a hardcoded fallback in `build.gradle.kts`).
+- **AI keys** (`local.properties`): `GEMINI_API_KEY` (Gemini 2.0 Flash), `DASHSCOPE_API_KEY` (Alibaba Qwen). Both default to empty string — features degrade gracefully when absent (`AiResult.MissingApiKey`). On-device background removal works without any key.
 - **`isMinifyEnabled = true`** and **`isShrinkResources = true`** in release builds — ProGuard/R8 is active. Keep `proguard-rules.pro` current when adding new dependencies. `Log.d`/`Log.v` are stripped via `-assumenosideeffects` — do not use `Log.i`/`Log.w` for debug-only output.
 - Backup rules must exclude `luma_gallery_prefs.xml` to prevent restoring another user's password hash or recycle bin state onto a new device.
 
+## Edit Feature
+
+**New route**: `edit_photo/{photoId}` — `EditScreen` is the only screen that instantiates its own `EditViewModel` via `viewModel()` directly (not prop-drilled from `MainActivity`).
+
+**Data layer** (`data/edit/`):
+- `BitmapEngine` — stateless `object`; every function returns a **new** bitmap. Callers own recycling; never pass a bitmap to two functions concurrently.
+- `EditHistory` — bounded undo/redo stack (`maxSize = 6`). Not thread-safe; call from a single coroutine. `pushUndo(prev)` clears the redo stack. `popUndo(current)` / `popRedo(current)` take the current bitmap (pushed onto the opposite stack) and return the saved one.
+- `FilterPreset` — enum; `Original` is a no-op guard. `preset.matrix()` builds a fresh `ColorMatrix` each call.
+- `PhotoIO` — `loadPreviewBitmap()` decodes at reduced sampling; `saveBitmap()` writes JPEG to `MediaStore`; `savePngSticker()` saves a transparent PNG.
+
+**AI layer** (`data/ai/`):
+- `AiEditRepository` — single entry point. Routes: background removal → `OnDeviceBgRemover` (ML Kit, no key needed); upscale / erase / prompt-edit → cloud with **Gemini primary, Qwen (DashScope) fallback**. If Gemini throws `QuotaException`, falls through to Qwen; if Qwen also unavailable, returns `AiResult.QuotaExceeded`.
+- `AiResult` sealed class: `Success(bitmap)`, `MissingApiKey`, `NetworkError`, `QuotaExceeded`, `Failure(message)`.
+- API keys sourced from `local.properties` → `BuildConfig`: `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`. `EditUiState.hasGeminiKey` / `hasDashscopeKey` drive UI hints.
+
+**EditViewModel** (`ui/viewmodel/EditViewModel.kt`):
+- `EditUiState.displayBitmap` = `previewBitmap ?: bitmap` — screens always render this, not `bitmap` directly.
+- Live color preview: `setColorPreview()` renders to `previewBitmap` without committing; `commitColorPreview()` pushes it to history; `discardColorPreview()` recycles it. **Always call discard or commit before any other op** — stale previews are not auto-cleared.
+- `replaceBitmap()` is the shared commit path used by crop, draw-flatten, and AI results.
+- Consume pattern: `consumeSavedUri()`, `consumeError()`, `consumeInfo()` must be called by the screen after acting on each one-shot state field.
+- `onCleared()` recycles `previewBitmap` and calls `history.clear()` to free all snapshot bitmaps.
+
+**Rewarded ad gate** (`ads/`):
+- `RewardedAdGate` singleton gates cloud AI ops (upscale, erase, prompt-edit). Call `RewardedAdGate.configure(adUnitId)` once at init; call `showForReward(activity, onRewarded, onUnavailable)` before triggering a cloud op. `onUnavailable` fires if no ad is ready — show a toast; do not block the user indefinitely.
+- Ad unit ID: `IRONSOURCE_REWARDED_AD_UNIT_ID` in `local.properties` (default fallback hardcoded in `build.gradle.kts`).
+- Background removal (`OnDeviceBgRemover`) does **not** require a rewarded ad — it runs on-device via ML Kit.
+
 ## SDK & Toolchain
 
-- Compile/Target SDK: 36 | Min SDK: 24
+- Compile/Target SDK: 37 | Min SDK: 24
 - Kotlin 2.2.10, AGP 9.2.0, Java 17
 - Compose BOM `2024.09.00`; Material 3
 - Coil 2.7.0 (images + `VideoFrameDecoder` for thumbnails), Media3/ExoPlayer 1.5.0 (video playback)

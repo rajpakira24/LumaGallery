@@ -52,6 +52,8 @@ Or open the project in Android Studio and run the `app` configuration.
 3. (Optional, for ads) Add your Unity LevelPlay app key to `local.properties`:
    ```
    IRONSOURCE_APP_KEY=your_key_here
+   TEST_IRONSOURCE_APP_KEY=your_debug_test_key_here
+   # Debug builds use TEST_IRONSOURCE_APP_KEY when it is set; release builds use IRONSOURCE_APP_KEY.
    ```
    The app reads this via `BuildConfig.IRONSOURCE_APP_KEY` — never commit it.
 

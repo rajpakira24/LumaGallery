@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val localProperties = Properties().apply {
@@ -11,6 +12,13 @@ val localProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val ironSourceAppKey: String = localProperties.getProperty("IRONSOURCE_APP_KEY", "")
+val testIronSourceAppKey: String = localProperties.getProperty("TEST_IRONSOURCE_APP_KEY", "")
+val ironSourceBannerAdUnitId: String =
+    localProperties.getProperty("IRONSOURCE_BANNER_AD_UNIT_ID", "7eeqbexvysm0xzv5")
+val ironSourceRewardedAdUnitId: String =
+    localProperties.getProperty("IRONSOURCE_REWARDED_AD_UNIT_ID", "1z2ho8ph0in73kzf")
+val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
+val dashscopeApiKey: String = localProperties.getProperty("DASHSCOPE_API_KEY", "")
 
 android {
     namespace = "com.webstudio.lumagallery"
@@ -31,6 +39,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "IRONSOURCE_APP_KEY", "\"$ironSourceAppKey\"")
+        buildConfigField("String", "TEST_IRONSOURCE_APP_KEY", "\"$testIronSourceAppKey\"")
+        buildConfigField("String", "IRONSOURCE_BANNER_AD_UNIT_ID", "\"$ironSourceBannerAdUnitId\"")
+        buildConfigField("String", "IRONSOURCE_REWARDED_AD_UNIT_ID", "\"$ironSourceRewardedAdUnitId\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
+        buildConfigField("String", "DASHSCOPE_API_KEY", "\"$dashscopeApiKey\"")
     }
 
     buildTypes {
@@ -100,6 +113,19 @@ dependencies {
 
     // Unity LevelPlay (IronSource) — banner ads
     implementation(libs.ironsource.mediationsdk)
+
+    // ML Kit on-device Selfie Segmentation (background removal)
+    implementation(libs.mlkit.segmentation.selfie)
+
+    // uCrop — crop/rotate/flip UI
+    implementation(libs.ucrop)
+
+    // Retrofit + OkHttp + kotlinx-serialization (cloud AI APIs)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.kotlinx.serialization.json)
 
     //Test & Debug
     testImplementation(libs.junit)

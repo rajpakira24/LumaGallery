@@ -24,27 +24,24 @@ import androidx.navigation.navArgument
 import coil.Coil
 import coil.ImageLoader
 import coil.decode.VideoFrameDecoder
-import com.ironsource.mediationsdk.IronSource
+import com.unity3d.mediation.LevelPlay
+import com.unity3d.mediation.LevelPlayConfiguration
+import com.unity3d.mediation.LevelPlayInitError
+import com.unity3d.mediation.LevelPlayInitListener
+import com.unity3d.mediation.LevelPlayInitRequest
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.webstudio.lumagallery.ads.LevelPlayAdState
+import com.webstudio.lumagallery.ads.RewardedAdGate
 import com.webstudio.lumagallery.ui.navigation.Screen
 import com.webstudio.lumagallery.ui.screens.*
+import com.webstudio.lumagallery.ui.screens.edit.EditScreen
 import com.webstudio.lumagallery.ui.theme.LumaGalleryTheme
 import com.webstudio.lumagallery.ui.viewmodel.GalleryUiState
 import com.webstudio.lumagallery.ui.viewmodel.GalleryViewModel
 
 class MainActivity : ComponentActivity() {
-
-    override fun onResume() {
-        super.onResume()
-        IronSource.onResume(this)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        IronSource.onPause(this)
-    }
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,8 +54,23 @@ class MainActivity : ComponentActivity() {
                 .build()
         )
 
-        IronSource.setAdaptersDebug(BuildConfig.DEBUG)
-        IronSource.init(this, BuildConfig.IRONSOURCE_APP_KEY, IronSource.AD_UNIT.BANNER)
+        val levelPlayAppKey = if (BuildConfig.DEBUG && BuildConfig.TEST_IRONSOURCE_APP_KEY.isNotBlank()) {
+            BuildConfig.TEST_IRONSOURCE_APP_KEY
+        } else {
+            BuildConfig.IRONSOURCE_APP_KEY
+        }
+        LevelPlay.init(
+            this,
+            LevelPlayInitRequest.Builder(levelPlayAppKey).build(),
+            object : LevelPlayInitListener {
+                override fun onInitSuccess(configuration: LevelPlayConfiguration) {
+                    LevelPlayAdState.markInitialized()
+                    RewardedAdGate.configure(BuildConfig.IRONSOURCE_REWARDED_AD_UNIT_ID)
+                }
+
+                override fun onInitFailed(error: LevelPlayInitError) = Unit
+            }
+        )
 
         setContent {
             LumaGalleryTheme {
@@ -210,6 +222,9 @@ class MainActivity : ComponentActivity() {
                                             onRenamePhoto = { id, uri, name -> viewModel.renamePhoto(id, uri, name) },
                                             onCopyPhoto = { p, path -> viewModel.copyPhoto(p, path) },
                                             onMovePhoto = { p, path -> viewModel.movePhoto(p, path) },
+                                            onEditPhoto = { id ->
+                                                navController.navigate(Screen.EditPhoto.createRoute(id))
+                                            },
                                             folderGroups = state.folderGroups,
                                             pendingWriteIntent = pendingWriteIntent,
                                             onWriteIntentConsumed = { viewModel.clearPendingWriteIntent() },
@@ -254,6 +269,38 @@ class MainActivity : ComponentActivity() {
                                         onDeleteIntentConsumed = { viewModel.clearPendingDeleteIntent() },
                                         onDeleteGranted = { viewModel.onDeleteGranted() }
                                     )
+                                }
+                                else -> {}
+                            }
+                        }
+
+                        composable(
+                            route = Screen.EditPhoto.route,
+                            arguments = listOf(navArgument("photoId") { type = NavType.LongType }),
+                            enterTransition = {
+                                fadeIn(animationSpec = tween(280)) +
+                                        scaleIn(initialScale = 0.94f, animationSpec = tween(280))
+                            },
+                            exitTransition = {
+                                fadeOut(animationSpec = tween(220)) +
+                                        scaleOut(targetScale = 0.96f, animationSpec = tween(220))
+                            }
+                        ) { backStackEntry ->
+                            val photoId = backStackEntry.arguments?.getLong("photoId") ?: 0L
+                            when (val state = uiState) {
+                                is GalleryUiState.Success -> {
+                                    val photoUri = state.allPhotos.find { it.id == photoId }?.uri
+                                        ?: state.hiddenPhotos.find { it.id == photoId }?.uri
+                                    if (photoUri != null) {
+                                        EditScreen(
+                                            photoUri = photoUri,
+                                            onNavigateBack = { navController.popBackStack() },
+                                            onSaved = {
+                                                viewModel.onMediaCreated()
+                                                navController.popBackStack()
+                                            }
+                                        )
+                                    }
                                 }
                                 else -> {}
                             }
