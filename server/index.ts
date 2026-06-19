@@ -52,7 +52,14 @@ export async function handle(reqObj: Request, deps: Deps): Promise<Response> {
 
 if (import.meta.main) {
   const pkg = Deno.env.get("ANDROID_PACKAGE_NAME") ?? "com.webstudio.lumagallery";
-  const verify = makeVerifier(Deno.env.get("PLAY_INTEGRITY_SA") ?? "{}", pkg);
+  // DEV ONLY: set ATTEST_MODE=allow_all to bypass Play Integrity for smoke testing
+  // before a service account is configured. NEVER set this in production — it makes
+  // the proxy an open door to the AI keys.
+  const allowAll = Deno.env.get("ATTEST_MODE") === "allow_all";
+  const verify = allowAll
+    ? (async () => true)
+    : makeVerifier(Deno.env.get("PLAY_INTEGRITY_SA") ?? "{}", pkg);
+  if (allowAll) console.warn("[ai-proxy] ATTEST_MODE=allow_all — attestation DISABLED (dev only)");
   const gemini = makeGemini(Deno.env.get("GEMINI_API_KEY") ?? "");
   const openrouter = makeOpenRouter(Deno.env.get("OPENROUTER_API_KEY") ?? "");
   const deps: Deps = {
