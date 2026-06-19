@@ -5,9 +5,13 @@ Deno.test("allows up to N per window then blocks, isolated per id", async () => 
   const kv = await Deno.openKv(":memory:");
   try {
     const limit = makeRateLimiter(kv, [{ name: "min", windowSec: 60, limit: 3 }]);
+    const r1 = await limit("ip1");
+    assertEquals(r1.allowed, true);
+    assertEquals(r1.remaining.min, 2); // post-increment remaining
     assertEquals((await limit("ip1")).allowed, true);
-    assertEquals((await limit("ip1")).allowed, true);
-    assertEquals((await limit("ip1")).allowed, true);
+    const r3 = await limit("ip1");
+    assertEquals(r3.allowed, true);
+    assertEquals(r3.remaining.min, 0);
     const blocked = await limit("ip1");
     assertEquals(blocked.allowed, false); // 4th blocked
     assertEquals(blocked.retryAfterSec > 0 && blocked.retryAfterSec <= 60, true);
