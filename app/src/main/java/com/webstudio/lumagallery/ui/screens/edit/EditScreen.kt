@@ -200,7 +200,7 @@ fun EditScreen(
                     )
                 } else if (editBitmap != null && !editBitmap.isRecycled && selectedTool == EditTool.Ai) {
                     AiPanel(
-                        hasGeminiKey = state.hasGeminiKey,
+                        aiEnabled = state.aiEnabled,
                         currentBitmap = editBitmap,
                         onRemoveBackground = { viewModel.aiRemoveBackground() },
                         onUpscale = { runCloudEditAfterReward { viewModel.aiUpscale() } },

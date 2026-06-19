@@ -80,7 +80,7 @@ fun PhotoDetailScreen(
     onWriteGranted: () -> Unit = {},
     onWriteDenied: () -> Unit = {},
     captionState: CaptionState = CaptionState.None,
-    hasOpenRouterKey: Boolean = false,
+    aiEnabled: Boolean = false,
     onLoadCaption: (Long) -> Unit = {},
     onGenerateCaption: (Photo) -> Unit = {}
 ) {
@@ -504,7 +504,7 @@ fun PhotoDetailScreen(
                 }
                 DetailRow("Path", currentPhoto.folderPath)
                 DetailRow("Type", currentPhoto.mimeType)
-                if (hasOpenRouterKey || captionState is CaptionState.Loaded) {
+                if (aiEnabled || captionState is CaptionState.Loaded) {
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(8.dp))

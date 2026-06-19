@@ -81,7 +81,7 @@ fun GalleryScreen(
     onBulkMoveToRecycleBin: (Set<Long>) -> Unit = {},
     onBulkToggleHidden: (Set<Long>) -> Unit = {},
     onRefresh: () -> Unit = {},
-    hasGeminiKey: Boolean = false,
+    aiEnabled: Boolean = false,
     onGenerateImage: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -268,7 +268,7 @@ fun GalleryScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
-            if (!isSelectionMode && hasGeminiKey) {
+            if (!isSelectionMode && aiEnabled) {
                 FloatingActionButton(
                     onClick = { showGenerateDialog = true },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -1039,7 +1039,7 @@ private fun GenerateImageDialog(
         text = {
             Column {
                 Text(
-                    "Describe an image and Gemini will generate it for you.",
+                    "Describe an image and AI will generate it for you.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -64,7 +64,7 @@ enum class ViewMode { PHOTOS, COLLECTIONS }
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = PhotoRepository(application)
-    private val aiRepo = AiEditRepository()
+    private val aiRepo = AiEditRepository(application)
     private val _uiState = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading)
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
     private val _pendingDeleteIntent = MutableStateFlow<PendingIntent?>(null)
@@ -80,8 +80,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     val captionState: StateFlow<CaptionState> = _captionState.asStateFlow()
     private val _imageGenState = MutableStateFlow<ImageGenState>(ImageGenState.Idle)
     val imageGenState: StateFlow<ImageGenState> = _imageGenState.asStateFlow()
-    val hasOpenRouterKey: Boolean get() = aiRepo.hasOpenRouterKey
-    val hasGeminiKey: Boolean get() = aiRepo.hasGeminiKey
+    val aiEnabled: Boolean get() = aiRepo.aiEnabled
 
     init {
         viewModelScope.launch {
@@ -463,7 +462,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                         repository.setCaption(photo.id, result.text)
                         CaptionState.Loaded(result.text)
                     }
-                    is AiResult.MissingApiKey -> CaptionState.Error("No OpenRouter key configured")
+                    is AiResult.MissingApiKey -> CaptionState.Error("Cloud AI is not configured")
                     is AiResult.NetworkError -> CaptionState.Error("Network error — check connection")
                     is AiResult.QuotaExceeded -> CaptionState.Error("API quota exceeded")
                     is AiResult.Failure -> CaptionState.Error(result.message)
@@ -491,9 +490,9 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                         reloadGalleryInBackground()
                     }
                     is AiResult.MissingApiKey ->
-                        _imageGenState.value = ImageGenState.Error("Set GEMINI_API_KEY in local.properties")
+                        _imageGenState.value = ImageGenState.Error("Cloud AI is not configured")
                     is AiResult.QuotaExceeded ->
-                        _imageGenState.value = ImageGenState.Error("Gemini quota exceeded — try later")
+                        _imageGenState.value = ImageGenState.Error("AI quota exceeded — try later")
                     is AiResult.NetworkError ->
                         _imageGenState.value = ImageGenState.Error("Network error — check connection")
                     is AiResult.Failure ->

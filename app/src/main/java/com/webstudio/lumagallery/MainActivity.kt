@@ -236,7 +236,7 @@ class MainActivity : ComponentActivity() {
                                             onWriteGranted = { viewModel.onWritePermissionGranted() },
                                             onWriteDenied = { viewModel.onWritePermissionDenied() },
                                             captionState = captionState,
-                                            hasOpenRouterKey = viewModel.hasOpenRouterKey,
+                                            aiEnabled = viewModel.aiEnabled,
                                             onLoadCaption = { id -> viewModel.loadCaption(id) },
                                             onGenerateCaption = { photo -> viewModel.generateCaption(photo) }
                                         )

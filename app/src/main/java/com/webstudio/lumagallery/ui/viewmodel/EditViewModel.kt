@@ -31,7 +31,7 @@ data class EditUiState(
     val savedUri: Uri? = null,
     val errorMessage: String? = null,
     val infoMessage: String? = null,
-    val hasGeminiKey: Boolean = false,
+    val aiEnabled: Boolean = false,
     val stickerUri: Uri? = null
 ) {
     val displayBitmap: Bitmap? get() = previewBitmap ?: bitmap
@@ -40,12 +40,12 @@ data class EditUiState(
 
 class EditViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val aiRepo = AiEditRepository()
+    private val aiRepo = AiEditRepository(application)
     private val history = EditHistory()
 
     private val _uiState = MutableStateFlow(
         EditUiState(
-            hasGeminiKey = com.webstudio.lumagallery.BuildConfig.GEMINI_API_KEY.isNotBlank()
+            aiEnabled = com.webstudio.lumagallery.BuildConfig.AI_PROXY_URL.isNotBlank()
         )
     )
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
@@ -199,7 +199,7 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                 is AiResult.Success -> replaceBitmap(result.bitmap)
                 AiResult.MissingApiKey -> _uiState.value = _uiState.value.copy(
                     processingLabel = null,
-                    errorMessage = "Set GEMINI_API_KEY in local.properties to use this feature."
+                    errorMessage = "Cloud AI is not configured."
                 )
                 AiResult.NetworkError -> _uiState.value = _uiState.value.copy(
                     processingLabel = null,
