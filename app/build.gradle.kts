@@ -14,8 +14,8 @@ val localProperties = Properties().apply {
 val unityGameId: String = localProperties.getProperty("UNITY_GAME_ID", "")
 val unityBannerPlacementId: String = localProperties.getProperty("UNITY_BANNER_PLACEMENT_ID", "")
 val unityRewardedPlacementId: String = localProperties.getProperty("UNITY_REWARDED_PLACEMENT_ID", "")
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
-val openRouterApiKey: String = localProperties.getProperty("OPENROUTER_API_KEY", "")
+val aiProxyUrl: String = localProperties.getProperty("AI_PROXY_URL", "")
+val playCloudProjectNumber: String = localProperties.getProperty("PLAY_CLOUD_PROJECT_NUMBER", "0")
 
 android {
     namespace = "com.webstudio.lumagallery"
@@ -38,8 +38,8 @@ android {
         buildConfigField("String", "UNITY_GAME_ID", "\"$unityGameId\"")
         buildConfigField("String", "UNITY_BANNER_PLACEMENT_ID", "\"$unityBannerPlacementId\"")
         buildConfigField("String", "UNITY_REWARDED_PLACEMENT_ID", "\"$unityRewardedPlacementId\"")
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
-        buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
+        buildConfigField("String", "AI_PROXY_URL", "\"$aiProxyUrl\"")
+        buildConfigField("long", "PLAY_CLOUD_PROJECT_NUMBER", "${playCloudProjectNumber}L")
     }
 
     buildTypes {
@@ -123,8 +123,13 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.kotlinx.serialization.json)
 
+    // Play Integrity + coroutines bridge
+    implementation("com.google.android.play:integrity:1.4.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
     //Test & Debug
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
