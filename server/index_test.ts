@@ -3,6 +3,7 @@ import { handle } from "./index.ts";
 
 // Fakes injected via the deps object
 const deps = {
+  checkRateLimit: async () => true,
   verifyIntegrity: async () => true,
   callGemini: async (_op: string, _img: string, _prompt?: string) => "GEM_B64",
   callOpenRouter: async (_img: string) => "a caption",
@@ -39,4 +40,13 @@ Deno.test("failed attestation is 401", async () => {
     { ...deps, verifyIntegrity: async () => false },
   );
   assertEquals(res.status, 401);
+});
+
+Deno.test("rate limited returns 429 before attestation", async () => {
+  const res = await handle(
+    req({ op: "describe", image_b64: "X", integrity_token: "T" }),
+    { ...deps, checkRateLimit: async () => false },
+  );
+  assertEquals(res.status, 429);
+  assertEquals(await res.json(), { error: "rate_limited" });
 });

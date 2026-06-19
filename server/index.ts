@@ -1,7 +1,9 @@
 import { makeGemini, makeOpenRouter } from "./providers.ts";
 import { makeVerifier } from "./integrity.ts";
+import { makeRateLimiter } from "./rate_limit.ts";
 
 export interface Deps {
+  checkRateLimit: (id: string) => Promise<boolean>;
   verifyIntegrity: (token: string, requestHash: string | undefined) => Promise<boolean>;
   callGemini: (op: string, imageB64: string, prompt?: string, maskB64?: string) => Promise<string>;
   callOpenRouter: (imageB64: string) => Promise<string>;
@@ -23,6 +25,10 @@ const json = (status: number, obj: unknown) =>
 
 export async function handle(reqObj: Request, deps: Deps): Promise<Response> {
   if (reqObj.method !== "POST") return json(405, { error: "method" });
+
+  const ip = reqObj.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!(await deps.checkRateLimit(ip))) return json(429, { error: "rate_limited" });
+
   let body: Body;
   try { body = await reqObj.json(); } catch { return json(400, { error: "bad_json" }); }
 
@@ -62,7 +68,11 @@ if (import.meta.main) {
   if (allowAll) console.warn("[ai-proxy] ATTEST_MODE=allow_all — attestation DISABLED (dev only)");
   const gemini = makeGemini(Deno.env.get("GEMINI_API_KEY") ?? "");
   const openrouter = makeOpenRouter(Deno.env.get("OPENROUTER_API_KEY") ?? "");
+  const kv = await Deno.openKv();
+  const perMin = Number(Deno.env.get("RATE_LIMIT_PER_MIN") ?? "20");
+  const checkRateLimit = makeRateLimiter(kv, perMin);
   const deps: Deps = {
+    checkRateLimit,
     verifyIntegrity: verify,
     callGemini: gemini,
     callOpenRouter: openrouter,

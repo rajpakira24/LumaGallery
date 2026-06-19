@@ -1,5 +1,5 @@
 {
-  "tasks": { "test": "deno test --allow-env --allow-net" },
+  "tasks": { "test": "deno test --allow-env --allow-net --unstable-kv" },
   "imports": {
     "std/": "https://deno.land/std@0.224.0/"
   }
