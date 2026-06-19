@@ -56,12 +56,32 @@ class AiProxyClient(
             .toRequestBody("application/json".toMediaType())
         val request = Request.Builder().url(functionUrl).post(reqBody).build()
         http.newCall(request).execute().use { resp ->
-            when {
-                resp.code == 401 -> throw AttestationException()
-                resp.code == 429 -> throw QuotaException()
-                !resp.isSuccessful -> throw IOException("proxy HTTP ${resp.code}")
+            val bodyStr = resp.body?.string() ?: ""
+            AiUsageState.update(
+                AiUsage(
+                    remainingMin = resp.header("X-RateLimit-Remaining-Min")?.toIntOrNull(),
+                    remainingHour = resp.header("X-RateLimit-Remaining-Hour")?.toIntOrNull(),
+                    remainingDay = resp.header("X-RateLimit-Remaining-Day")?.toIntOrNull(),
+                    imageRemainingDay = resp.header("X-RateLimit-Image-Remaining-Day")?.toIntOrNull(),
+                    resetDaySec = resp.header("X-RateLimit-Reset-Day")?.toIntOrNull(),
+                )
+            )
+            when (resp.code) {
+                401 -> throw AttestationException()
+                429 -> {
+                    val err = runCatching {
+                        json.decodeFromString(ErrorBody.serializer(), bodyStr)
+                    }.getOrNull()
+                    if (err?.error == "rate_limited") {
+                        val retry = resp.header("Retry-After")?.toIntOrNull()
+                            ?: err.retryAfter ?: 0
+                        throw RateLimitException(retry)
+                    }
+                    throw QuotaException()
+                }
+                else -> if (!resp.isSuccessful) throw IOException("proxy HTTP ${resp.code}")
             }
-            return resp.body?.string() ?: throw IOException("empty body")
+            return bodyStr
         }
     }
 
@@ -74,6 +94,7 @@ class AiProxyClient(
 
     class QuotaException : IOException("quota")
     class AttestationException : IOException("attestation failed")
+    class RateLimitException(val retryAfterSec: Int) : IOException("rate limited")
 
     @Serializable
     private data class ProxyRequest(
@@ -83,6 +104,12 @@ class AiProxyClient(
         val prompt: String? = null,
         @SerialName("request_hash") val requestHash: String,
         @SerialName("integrity_token") val integrityToken: String,
+    )
+
+    @Serializable
+    private data class ErrorBody(
+        val error: String? = null,
+        @SerialName("retry_after") val retryAfter: Int? = null,
     )
 
     @Serializable

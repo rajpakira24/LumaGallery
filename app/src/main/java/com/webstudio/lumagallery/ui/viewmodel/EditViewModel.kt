@@ -209,6 +209,10 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                     processingLabel = null,
                     errorMessage = "Free-tier quota exhausted. Try again later."
                 )
+                is AiResult.RateLimited -> _uiState.value = _uiState.value.copy(
+                    processingLabel = null,
+                    errorMessage = "AI limit reached — try again in ${formatRetry(result.retryAfterSec)}"
+                )
                 is AiResult.Failure -> _uiState.value = _uiState.value.copy(
                     processingLabel = null,
                     errorMessage = "AI op failed: ${result.message}"
@@ -307,6 +311,9 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    private fun formatRetry(sec: Int): String =
+        if (sec >= 60) "${(sec + 59) / 60} min" else "$sec s"
 
     override fun onCleared() {
         super.onCleared()

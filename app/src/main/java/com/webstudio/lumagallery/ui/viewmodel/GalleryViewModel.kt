@@ -465,6 +465,8 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                     is AiResult.MissingApiKey -> CaptionState.Error("Cloud AI is not configured")
                     is AiResult.NetworkError -> CaptionState.Error("Network error — check connection")
                     is AiResult.QuotaExceeded -> CaptionState.Error("API quota exceeded")
+                    is AiResult.RateLimited ->
+                        CaptionState.Error("AI limit reached — try again in ${formatRetry(result.retryAfterSec)}")
                     is AiResult.Failure -> CaptionState.Error(result.message)
                     else -> CaptionState.Error("Unexpected error")
                 }
@@ -493,6 +495,10 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                         _imageGenState.value = ImageGenState.Error("Cloud AI is not configured")
                     is AiResult.QuotaExceeded ->
                         _imageGenState.value = ImageGenState.Error("AI quota exceeded — try later")
+                    is AiResult.RateLimited ->
+                        _imageGenState.value = ImageGenState.Error(
+                            "AI limit reached — try again in ${formatRetry(result.retryAfterSec)}"
+                        )
                     is AiResult.NetworkError ->
                         _imageGenState.value = ImageGenState.Error("Network error — check connection")
                     is AiResult.Failure ->
@@ -506,6 +512,9 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetImageGenState() { _imageGenState.value = ImageGenState.Idle }
+
+    private fun formatRetry(sec: Int): String =
+        if (sec >= 60) "${(sec + 59) / 60} min" else "$sec s"
 
     // Reloads date/folder groups in the background after a restore, without showing Loading state
     private fun reloadGalleryInBackground() {

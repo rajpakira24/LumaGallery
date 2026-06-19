@@ -37,6 +37,8 @@ class AiEditRepository(
             AiResult.TextSuccess(proxy.describe(src))
         } catch (e: AiProxyClient.QuotaException) {
             AiResult.QuotaExceeded
+        } catch (e: AiProxyClient.RateLimitException) {
+            AiResult.RateLimited(e.retryAfterSec)
         } catch (e: AiProxyClient.AttestationException) {
             AiResult.Failure("device verification failed")
         } catch (e: UnknownHostException) {
@@ -52,6 +54,8 @@ class AiEditRepository(
             AiResult.Success(op())
         } catch (e: AiProxyClient.QuotaException) {
             AiResult.QuotaExceeded
+        } catch (e: AiProxyClient.RateLimitException) {
+            AiResult.RateLimited(e.retryAfterSec)
         } catch (e: AiProxyClient.AttestationException) {
             AiResult.Failure("device verification failed")
         } catch (e: UnknownHostException) {

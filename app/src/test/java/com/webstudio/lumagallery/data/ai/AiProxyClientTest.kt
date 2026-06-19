@@ -52,6 +52,30 @@ class AiProxyClientTest {
         }
     }
 
+    @Test fun http_429_rate_limited_throws_rate_limit_with_retry() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(429)
+                .addHeader("Retry-After", "30")
+                .setBody("""{"error":"rate_limited","retry_after":30}""")
+        )
+        val ex = assertThrows(AiProxyClient.RateLimitException::class.java) {
+            runBlocking { client().describe(STUB) }
+        }
+        assertEquals(30, ex.retryAfterSec)
+    }
+
+    @Test fun success_parses_remaining_day_header_into_usage_state() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .addHeader("X-RateLimit-Remaining-Day", "7")
+                .setBody("""{"text":"a cat"}""")
+        )
+        client().describe(STUB)
+        assertEquals(7, AiUsageState.usage.value?.remainingDay)
+    }
+
     companion object {
         private val STUB: Bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
     }

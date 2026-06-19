@@ -179,6 +179,9 @@ fun AiPanel(
                     }
                 }
             }
+            if (hasCloud) {
+                AiUsageChip(modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            }
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -261,6 +264,21 @@ fun AiPanel(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun AiUsageChip(modifier: Modifier = Modifier) {
+    val usage by com.webstudio.lumagallery.data.ai.AiUsageState.usage.collectAsState()
+    val day = usage?.remainingDay
+    // Only show when we have data AND it's getting low
+    if (day != null && day <= 25) {
+        AssistChip(
+            onClick = {},
+            enabled = false,
+            label = { Text("$day AI uses left today") },
+            modifier = modifier,
+        )
     }
 }
 

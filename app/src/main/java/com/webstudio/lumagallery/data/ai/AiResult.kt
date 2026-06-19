@@ -8,5 +8,6 @@ sealed class AiResult {
     object MissingApiKey : AiResult()
     object NetworkError : AiResult()
     object QuotaExceeded : AiResult()
+    data class RateLimited(val retryAfterSec: Int) : AiResult()
     data class Failure(val message: String) : AiResult()
 }
