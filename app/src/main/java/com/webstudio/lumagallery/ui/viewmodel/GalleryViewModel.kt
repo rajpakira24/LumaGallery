@@ -14,6 +14,9 @@ import com.webstudio.lumagallery.data.Photo
 import com.webstudio.lumagallery.data.PhotoRepository
 import com.webstudio.lumagallery.data.RecycleBinItem
 import com.webstudio.lumagallery.data.WriteResult
+import com.webstudio.lumagallery.data.ai.AiEditRepository
+import com.webstudio.lumagallery.data.ai.AiResult
+import com.webstudio.lumagallery.data.edit.PhotoIO
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -27,6 +30,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "GalleryViewModel"
+
+sealed class ImageGenState {
+    object Idle : ImageGenState()
+    object Generating : ImageGenState()
+    data class Error(val msg: String) : ImageGenState()
+}
+
+sealed class CaptionState {
+    object None : CaptionState()
+    object Loading : CaptionState()
+    data class Loaded(val text: String) : CaptionState()
+    data class Error(val msg: String) : CaptionState()
+}
 
 sealed class GalleryUiState {
     object Loading : GalleryUiState()
@@ -48,6 +64,7 @@ enum class ViewMode { PHOTOS, COLLECTIONS }
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = PhotoRepository(application)
+    private val aiRepo = AiEditRepository()
     private val _uiState = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading)
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
     private val _pendingDeleteIntent = MutableStateFlow<PendingIntent?>(null)
@@ -59,6 +76,12 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
     private var hasLoadedPhotos = false
     private var pendingDeleteIds: List<Long> = emptyList()
+    private val _captionState = MutableStateFlow<CaptionState>(CaptionState.None)
+    val captionState: StateFlow<CaptionState> = _captionState.asStateFlow()
+    private val _imageGenState = MutableStateFlow<ImageGenState>(ImageGenState.Idle)
+    val imageGenState: StateFlow<ImageGenState> = _imageGenState.asStateFlow()
+    val hasOpenRouterKey: Boolean get() = aiRepo.hasOpenRouterKey
+    val hasGeminiKey: Boolean get() = aiRepo.hasGeminiKey
 
     init {
         viewModelScope.launch {
@@ -424,6 +447,66 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     /** Public entry point used by the photo editor when a new file has been saved into MediaStore. */
     fun onMediaCreated() = reloadGalleryInBackground()
+
+    fun loadCaption(photoId: Long) {
+        val cached = repository.getCaption(photoId)
+        _captionState.value = if (cached != null) CaptionState.Loaded(cached) else CaptionState.None
+    }
+
+    fun generateCaption(photo: Photo) {
+        viewModelScope.launch {
+            _captionState.value = CaptionState.Loading
+            try {
+                val bitmap = PhotoIO.loadPreviewBitmap(getApplication(), photo.uri)
+                _captionState.value = when (val result = aiRepo.describePhoto(bitmap)) {
+                    is AiResult.TextSuccess -> {
+                        repository.setCaption(photo.id, result.text)
+                        CaptionState.Loaded(result.text)
+                    }
+                    is AiResult.MissingApiKey -> CaptionState.Error("No OpenRouter key configured")
+                    is AiResult.NetworkError -> CaptionState.Error("Network error — check connection")
+                    is AiResult.QuotaExceeded -> CaptionState.Error("API quota exceeded")
+                    is AiResult.Failure -> CaptionState.Error(result.message)
+                    else -> CaptionState.Error("Unexpected error")
+                }
+            } catch (e: Exception) {
+                _captionState.value = CaptionState.Error(e.message ?: "Failed to load image")
+            }
+        }
+    }
+
+    fun resetCaption() {
+        _captionState.value = CaptionState.None
+    }
+
+    fun generateImage(prompt: String) {
+        viewModelScope.launch {
+            _imageGenState.value = ImageGenState.Generating
+            try {
+                when (val result = aiRepo.generateImage(prompt)) {
+                    is AiResult.Success -> {
+                        PhotoIO.saveBitmap(getApplication(), result.bitmap)
+                        _imageGenState.value = ImageGenState.Idle
+                        _userMessage.tryEmit("Image saved to gallery")
+                        reloadGalleryInBackground()
+                    }
+                    is AiResult.MissingApiKey ->
+                        _imageGenState.value = ImageGenState.Error("Set GEMINI_API_KEY in local.properties")
+                    is AiResult.QuotaExceeded ->
+                        _imageGenState.value = ImageGenState.Error("Gemini quota exceeded — try later")
+                    is AiResult.NetworkError ->
+                        _imageGenState.value = ImageGenState.Error("Network error — check connection")
+                    is AiResult.Failure ->
+                        _imageGenState.value = ImageGenState.Error(result.message)
+                    else -> _imageGenState.value = ImageGenState.Idle
+                }
+            } catch (e: Exception) {
+                _imageGenState.value = ImageGenState.Error(e.message ?: "Generation failed")
+            }
+        }
+    }
+
+    fun resetImageGenState() { _imageGenState.value = ImageGenState.Idle }
 
     // Reloads date/folder groups in the background after a restore, without showing Loading state
     private fun reloadGalleryInBackground() {

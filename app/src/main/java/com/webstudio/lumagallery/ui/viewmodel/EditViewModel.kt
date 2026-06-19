@@ -32,7 +32,7 @@ data class EditUiState(
     val errorMessage: String? = null,
     val infoMessage: String? = null,
     val hasGeminiKey: Boolean = false,
-    val hasDashscopeKey: Boolean = false
+    val stickerUri: Uri? = null
 ) {
     val displayBitmap: Bitmap? get() = previewBitmap ?: bitmap
     val isBusy: Boolean get() = isLoading || processingLabel != null
@@ -45,8 +45,7 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(
         EditUiState(
-            hasGeminiKey = com.webstudio.lumagallery.BuildConfig.GEMINI_API_KEY.isNotBlank(),
-            hasDashscopeKey = com.webstudio.lumagallery.BuildConfig.DASHSCOPE_API_KEY.isNotBlank()
+            hasGeminiKey = com.webstudio.lumagallery.BuildConfig.GEMINI_API_KEY.isNotBlank()
         )
     )
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
@@ -167,9 +166,10 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                         AiResult.MissingApiKey -> throw IllegalStateException("Sticker failed")
                         AiResult.NetworkError -> throw IllegalStateException("Network error")
                         AiResult.QuotaExceeded -> throw IllegalStateException("Quota exceeded")
+                        else -> throw IllegalStateException("Unexpected result")
                     }
                 }
-                PhotoIO.savePngSticker(getApplication(), sticker)
+                val savedUri = PhotoIO.savePngSticker(getApplication(), sticker)
                 history.pushUndo(src)
                 _uiState.value = _uiState.value.copy(
                     bitmap = sticker,
@@ -178,7 +178,7 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                     canRedo = history.canRedo,
                     isModified = true,
                     processingLabel = null,
-                    infoMessage = "Sticker saved. Want a more accurate cutout? Use cloud AI."
+                    stickerUri = savedUri
                 )
             } catch (e: Exception) {
                 Log.d(TAG, "createOnDeviceSticker failed", e)
@@ -199,7 +199,7 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                 is AiResult.Success -> replaceBitmap(result.bitmap)
                 AiResult.MissingApiKey -> _uiState.value = _uiState.value.copy(
                     processingLabel = null,
-                    errorMessage = "Set GEMINI_API_KEY or DASHSCOPE_API_KEY in local.properties to use this feature."
+                    errorMessage = "Set GEMINI_API_KEY in local.properties to use this feature."
                 )
                 AiResult.NetworkError -> _uiState.value = _uiState.value.copy(
                     processingLabel = null,
@@ -213,6 +213,7 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                     processingLabel = null,
                     errorMessage = "AI op failed: ${result.message}"
                 )
+                else -> _uiState.value = _uiState.value.copy(processingLabel = null)
             }
         }
     }
@@ -268,6 +269,10 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
 
     fun consumeSavedUri() {
         _uiState.value = _uiState.value.copy(savedUri = null)
+    }
+
+    fun consumeStickerUri() {
+        _uiState.value = _uiState.value.copy(stickerUri = null)
     }
 
     fun consumeError() {

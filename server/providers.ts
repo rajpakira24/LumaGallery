@@ -1,7 +1,7 @@
 const GEMINI_MODEL = "gemini-2.5-flash-image";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free";
+const OPENROUTER_MODEL = "nvidia/nemotron-nano-12b-v2-vl:free";
 
 const ERASE = "Remove the masked subject and fill the area naturally with surrounding texture.";
 const UPSCALE = "Upscale this image 2x preserving fine detail. Do not change content.";

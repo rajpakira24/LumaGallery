@@ -99,6 +99,33 @@ fun EditScreen(
         }
     }
 
+    var showStickerShareDialog by remember { mutableStateOf(false) }
+    var pendingStickerUri by remember { mutableStateOf<Uri?>(null) }
+    LaunchedEffect(state.stickerUri) {
+        state.stickerUri?.let { uri ->
+            pendingStickerUri = uri
+            showStickerShareDialog = true
+            viewModel.consumeStickerUri()
+        }
+    }
+
+    if (showStickerShareDialog && pendingStickerUri != null) {
+        AlertDialog(
+            onDismissRequest = { showStickerShareDialog = false },
+            title = { Text("Sticker saved!") },
+            text = { Text("Add this sticker to WhatsApp?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    shareToWhatsApp(context, pendingStickerUri!!)
+                    showStickerShareDialog = false
+                }) { Text("Add to WhatsApp") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStickerShareDialog = false }) { Text("Done") }
+            }
+        )
+    }
+
     var selectedTool by remember { mutableStateOf<EditTool?>(null) }
     var showExitDialog by remember { mutableStateOf(false) }
 
@@ -174,7 +201,6 @@ fun EditScreen(
                 } else if (editBitmap != null && !editBitmap.isRecycled && selectedTool == EditTool.Ai) {
                     AiPanel(
                         hasGeminiKey = state.hasGeminiKey,
-                        hasDashscopeKey = state.hasDashscopeKey,
                         currentBitmap = editBitmap,
                         onRemoveBackground = { viewModel.aiRemoveBackground() },
                         onUpscale = { runCloudEditAfterReward { viewModel.aiUpscale() } },
@@ -285,4 +311,23 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
+}
+
+private fun shareToWhatsApp(context: Context, uri: Uri) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "image/png"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        setPackage("com.whatsapp")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (e: android.content.ActivityNotFoundException) {
+        val fallback = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(fallback, "Share sticker via"))
+    }
 }

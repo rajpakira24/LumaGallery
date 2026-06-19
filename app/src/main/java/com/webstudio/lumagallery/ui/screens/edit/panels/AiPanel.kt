@@ -51,7 +51,6 @@ private data class MaskStroke(
 @Composable
 fun AiPanel(
     hasGeminiKey: Boolean,
-    hasDashscopeKey: Boolean,
     currentBitmap: Bitmap?,
     onRemoveBackground: () -> Unit,
     onUpscale: () -> Unit,
@@ -64,7 +63,7 @@ fun AiPanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hasCloud = hasGeminiKey || hasDashscopeKey
+    val hasCloud = hasGeminiKey
     var maskingActive by remember { mutableStateOf(false) }
     var showPromptDialog by remember { mutableStateOf(false) }
     var showStickerImprove by remember { mutableStateOf(false) }
@@ -142,7 +141,7 @@ fun AiPanel(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    "Cloud AI disabled - set GEMINI_API_KEY or DASHSCOPE_API_KEY in local.properties.",
+                    "Cloud AI disabled - set GEMINI_API_KEY in local.properties.",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(8.dp)
                 )

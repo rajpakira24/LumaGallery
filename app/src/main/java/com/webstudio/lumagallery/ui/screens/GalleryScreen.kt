@@ -80,12 +80,15 @@ fun GalleryScreen(
     onHiddenCollectionClick: () -> Unit = {},
     onBulkMoveToRecycleBin: (Set<Long>) -> Unit = {},
     onBulkToggleHidden: (Set<Long>) -> Unit = {},
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    hasGeminiKey: Boolean = false,
+    onGenerateImage: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
     var selectedPhotoIds by remember { mutableStateOf(emptySet<Long>()) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var showGenerateDialog by remember { mutableStateOf(false) }
     val isSelectionMode = selectedPhotoIds.isNotEmpty()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
@@ -265,6 +268,15 @@ fun GalleryScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
+            if (!isSelectionMode && hasGeminiKey) {
+                FloatingActionButton(
+                    onClick = { showGenerateDialog = true },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = "Create with AI")
+                }
+            }
         }
     ) { padding ->
         when (uiState) {
@@ -370,6 +382,13 @@ fun GalleryScreen(
                 }
             }
         }
+    }
+
+    if (showGenerateDialog) {
+        GenerateImageDialog(
+            onGenerate = { prompt -> onGenerateImage(prompt) },
+            onDismiss = { showGenerateDialog = false }
+        )
     }
 }
 
@@ -1008,6 +1027,47 @@ private fun FolderTileImage(photo: Photo) {
 }
 
 @Composable
+private fun GenerateImageDialog(
+    onGenerate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var prompt by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.AutoAwesome, null) },
+        title = { Text("Create with AI") },
+        text = {
+            Column {
+                Text(
+                    "Describe an image and Gemini will generate it for you.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    label = { Text("Image description") },
+                    placeholder = { Text("e.g. sunset over mountains, photorealistic") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onGenerate(prompt.trim()); onDismiss() },
+                enabled = prompt.isNotBlank()
+            ) { Text("Generate") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
 private fun SelectionActionBar(
     count: Int,
     onDelete: () -> Unit,
@@ -1067,12 +1127,16 @@ private fun UnityBannerAd() {
         factory = { ctx ->
             val activity = ctx.findActivity()
             if (activity == null) {
+                android.util.Log.d("UnityAds", "findActivity() returned null — banner skipped")
                 android.view.View(ctx)
             } else {
                 BannerView(activity, placementId, UnityBannerSize(320, 50)).apply {
                     listener = object : BannerView.IListener {
                         override fun onBannerLoaded(bannerAdView: BannerView) = Unit
-                        override fun onBannerFailedToLoad(bannerAdView: BannerView, errorInfo: BannerErrorInfo) = Unit
+                        override fun onBannerShown(bannerAdView: BannerView) = Unit
+                        override fun onBannerFailedToLoad(bannerAdView: BannerView, errorInfo: BannerErrorInfo) {
+                            android.util.Log.d("UnityAds", "Banner failed: ${errorInfo.errorCode} — ${errorInfo.errorMessage}")
+                        }
                         override fun onBannerClick(bannerAdView: BannerView) = Unit
                         override fun onBannerLeftApplication(bannerAdView: BannerView) = Unit
                     }

@@ -40,6 +40,16 @@ class GeminiImageClient(private val apiKey: String) {
         prompt = "Upscale this image 2x preserving fine detail. Do not change content."
     )
 
+    suspend fun generateFromText(prompt: String): Bitmap = withContext(Dispatchers.IO) {
+        val req = GenerateRequest(
+            contents = listOf(
+                Content(parts = listOf(Part(text = prompt)))
+            ),
+            generationConfig = GenerationConfig(responseModalities = listOf("IMAGE"))
+        )
+        callGenerateContent(req)
+    }
+
     suspend fun promptEdit(src: Bitmap, prompt: String): Bitmap = editWithPrompt(src, prompt)
 
     suspend fun inpaint(src: Bitmap, mask: Bitmap, prompt: String): Bitmap = withContext(Dispatchers.IO) {

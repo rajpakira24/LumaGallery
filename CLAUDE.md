@@ -58,7 +58,7 @@ MediaStore (system)
 
 **UI layer** (`ui/screens/`):
 - Gallery/detail/auxiliary screens are top-level `@Composable`s receiving props from `MainActivity` — no ViewModel access inside. Exception: `EditScreen` calls `viewModel()` directly because it has its own isolated `EditViewModel`.
-- `GalleryScreen` hosts two tabs (Photos / Collections) and the IronSource banner ad at the bottom.
+- `GalleryScreen` hosts two tabs (Photos / Collections) and a Unity Ads banner at the bottom.
 - `PhotoDetailScreen` has a `DropdownMenu` with: Details (ModalBottomSheet), Rename (AlertDialog), Set as (system chooser), Copy to / Move to (folder picker AlertDialog using `folderGroups`). A `LaunchedEffect(allPhotos.size)` navigates back when the current photo disappears from the list; it uses a `hasSeenCurrentPhoto` guard to prevent spurious back-navigation on the initial load.
 - `ui/util/DragSelectState` tracks drag-selection state. `itemBounds` stores `Rect` in **root coordinate space** (via `boundsInRoot()`), not parent-relative.
 
@@ -79,8 +79,8 @@ MediaStore (system)
 - **Media permissions differ by API level**: `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` for API 33+; `READ_EXTERNAL_STORAGE` for older.
 - **Hidden collection password** is PBKDF2WithHmacSHA256 (600k iterations, 32-byte salt) stored under keys `hidden_password_hash` and `hidden_password_salt` in SharedPreferences. `verifyHiddenPassword` is a `suspend fun` (runs on `Dispatchers.Default`) and returns `false` when no password exists — it never auto-sets. Use `setHiddenPassword()` explicitly for first-time setup.
 - **Photos tab grid** uses `Column { photos.chunked(3).forEach { Row { ... } } }` inside `LazyColumn` items — do **not** replace with nested `LazyVerticalGrid` (causes height-constraint clipping).
-- **Unity LevelPlay (IronSource)** app key is read from `local.properties` via `BuildConfig.IRONSOURCE_APP_KEY` — do not hardcode it back into `IronSource.init()`. Rewarded ad unit ID: `IRONSOURCE_REWARDED_AD_UNIT_ID` (has a hardcoded fallback in `build.gradle.kts`).
-- **AI keys** (`local.properties`): `GEMINI_API_KEY` (Gemini 2.0 Flash), `DASHSCOPE_API_KEY` (Alibaba Qwen). Both default to empty string — features degrade gracefully when absent (`AiResult.MissingApiKey`). On-device background removal works without any key.
+- **Unity Ads** keys in `local.properties` → `BuildConfig`: `UNITY_GAME_ID`, `UNITY_BANNER_PLACEMENT_ID`, `UNITY_REWARDED_PLACEMENT_ID`. All default to empty string — ads are silently skipped when blank. `UNITY_GAME_ID` **must be registered in the Unity dashboard for bundle ID `com.webstudio.lumagallery`** — a mismatched game ID returns HTTP 409 and init fails. `testMode = BuildConfig.DEBUG` is passed to `UnityAds.initialize`; real credentials are still required in test mode. `UnityAdState.initialized` (StateFlow) gates banner rendering — `UnityBannerAd()` returns early until `onInitializationComplete` fires.
+- **AI keys** (`local.properties`): `GEMINI_API_KEY` (Gemini image editing), `OPENROUTER_API_KEY` (OpenRouter vision captions). Both default to empty string — features degrade gracefully when absent (`AiResult.MissingApiKey`). On-device background removal works without any key. OpenRouter uses model `meta-llama/llama-3.2-11b-vision-instruct:free` for photo captions; result cached per photo in SharedPreferences under `caption_$photoId`.
 - **`isMinifyEnabled = true`** and **`isShrinkResources = true`** in release builds — ProGuard/R8 is active. Keep `proguard-rules.pro` current when adding new dependencies. `Log.d`/`Log.v` are stripped via `-assumenosideeffects` — do not use `Log.i`/`Log.w` for debug-only output.
 - Backup rules must exclude `luma_gallery_prefs.xml` to prevent restoring another user's password hash or recycle bin state onto a new device.
 
@@ -95,9 +95,9 @@ MediaStore (system)
 - `PhotoIO` — `loadPreviewBitmap()` decodes at reduced sampling; `saveBitmap()` writes JPEG to `MediaStore`; `savePngSticker()` saves a transparent PNG.
 
 **AI layer** (`data/ai/`):
-- `AiEditRepository` — single entry point. Routes: background removal → `OnDeviceBgRemover` (ML Kit, no key needed); upscale / erase / prompt-edit → cloud with **Gemini primary, Qwen (DashScope) fallback**. If Gemini throws `QuotaException`, falls through to Qwen; if Qwen also unavailable, returns `AiResult.QuotaExceeded`.
+- `AiEditRepository` — single entry point. Routes: background removal → `OnDeviceBgRemover` (ML Kit, no key needed); upscale / erase / prompt-edit → Gemini only (`AiResult.QuotaExceeded` if quota hit); `describePhoto()` → `OpenRouterVisionClient` (returns `AiResult.TextSuccess(text)`).
 - `AiResult` sealed class: `Success(bitmap)`, `MissingApiKey`, `NetworkError`, `QuotaExceeded`, `Failure(message)`.
-- API keys sourced from `local.properties` → `BuildConfig`: `GEMINI_API_KEY`, `DASHSCOPE_API_KEY`. `EditUiState.hasGeminiKey` / `hasDashscopeKey` drive UI hints.
+- API keys sourced from `local.properties` → `BuildConfig`: `GEMINI_API_KEY` (cloud edits), `OPENROUTER_API_KEY` (vision captions). `EditUiState.hasGeminiKey` drives UI hints.
 
 **EditViewModel** (`ui/viewmodel/EditViewModel.kt`):
 - `EditUiState.displayBitmap` = `previewBitmap ?: bitmap` — screens always render this, not `bitmap` directly.
@@ -107,8 +107,8 @@ MediaStore (system)
 - `onCleared()` recycles `previewBitmap` and calls `history.clear()` to free all snapshot bitmaps.
 
 **Rewarded ad gate** (`ads/`):
-- `RewardedAdGate` singleton gates cloud AI ops (upscale, erase, prompt-edit). Call `RewardedAdGate.configure(adUnitId)` once at init; call `showForReward(activity, onRewarded, onUnavailable)` before triggering a cloud op. `onUnavailable` fires if no ad is ready — show a toast; do not block the user indefinitely.
-- Ad unit ID: `IRONSOURCE_REWARDED_AD_UNIT_ID` in `local.properties` (default fallback hardcoded in `build.gradle.kts`).
+- `RewardedAdGate` singleton gates cloud AI ops (upscale, erase, prompt-edit). Call `RewardedAdGate.configure(placementId)` once after `UnityAdState` init; call `showForReward(activity, onRewarded, onUnavailable)` before triggering a cloud op. `onUnavailable` fires if no ad is ready — show a toast; do not block the user indefinitely.
+- Placement ID sourced from `BuildConfig.UNITY_REWARDED_PLACEMENT_ID` (set in `local.properties`).
 - Background removal (`OnDeviceBgRemover`) does **not** require a rewarded ad — it runs on-device via ML Kit.
 
 ## SDK & Toolchain
@@ -119,9 +119,9 @@ MediaStore (system)
 - Coil 2.7.0 (images + `VideoFrameDecoder` for thumbnails), Media3/ExoPlayer 1.5.0 (video playback)
 - Accompanist Permissions 0.37.3, SystemUI 0.36.0
 - Telephoto Zoomable 0.19.0 (pinch-to-zoom in `PhotoDetailScreen`)
-- Unity LevelPlay (IronSource) 8.4.0; Maven repo: `https://android-sdk.is.com/`
+- Unity Ads 4.12.4 (Maven Central — no custom repo needed)
 
-Dependency versions **not** in `gradle/libs.versions.toml` (hardcoded in `app/build.gradle.kts`): Navigation Compose, ViewModel Compose, Lifecycle Runtime Compose, Coil, Media3, Accompanist, Lottie, Telephoto, IronSource.
+Dependency versions **not** in `gradle/libs.versions.toml` (hardcoded in `app/build.gradle.kts`): Navigation Compose, ViewModel Compose, Lifecycle Runtime Compose, Coil, Media3, Accompanist, Lottie, Telephoto.
 
 ## graphify
 

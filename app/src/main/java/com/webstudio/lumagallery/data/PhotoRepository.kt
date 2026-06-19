@@ -844,4 +844,10 @@ class PhotoRepository(private val context: Context) {
             WriteResult.Success
         } else WriteResult.Failure
     }
+
+    fun getCaption(photoId: Long): String? = prefs.getString("caption_$photoId", null)
+
+    fun setCaption(photoId: Long, caption: String) {
+        prefs.edit { putString("caption_$photoId", caption) }
+    }
 }

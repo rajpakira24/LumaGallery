@@ -15,7 +15,7 @@ val unityGameId: String = localProperties.getProperty("UNITY_GAME_ID", "")
 val unityBannerPlacementId: String = localProperties.getProperty("UNITY_BANNER_PLACEMENT_ID", "")
 val unityRewardedPlacementId: String = localProperties.getProperty("UNITY_REWARDED_PLACEMENT_ID", "")
 val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
-val dashscopeApiKey: String = localProperties.getProperty("DASHSCOPE_API_KEY", "")
+val openRouterApiKey: String = localProperties.getProperty("OPENROUTER_API_KEY", "")
 
 android {
     namespace = "com.webstudio.lumagallery"
@@ -39,7 +39,7 @@ android {
         buildConfigField("String", "UNITY_BANNER_PLACEMENT_ID", "\"$unityBannerPlacementId\"")
         buildConfigField("String", "UNITY_REWARDED_PLACEMENT_ID", "\"$unityRewardedPlacementId\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
-        buildConfigField("String", "DASHSCOPE_API_KEY", "\"$dashscopeApiKey\"")
+        buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
     }
 
     buildTypes {

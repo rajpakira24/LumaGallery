@@ -1,6 +1,7 @@
 package com.webstudio.lumagallery
 
 import android.Manifest
+import android.util.Log
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -37,6 +38,8 @@ import com.webstudio.lumagallery.ui.screens.edit.EditScreen
 import com.webstudio.lumagallery.ui.theme.LumaGalleryTheme
 import com.webstudio.lumagallery.ui.viewmodel.GalleryUiState
 import com.webstudio.lumagallery.ui.viewmodel.GalleryViewModel
+import com.webstudio.lumagallery.ui.viewmodel.CaptionState
+import com.webstudio.lumagallery.ui.viewmodel.ImageGenState
 
 class MainActivity : ComponentActivity() {
 
@@ -60,7 +63,9 @@ class MainActivity : ComponentActivity() {
                     UnityAdState.markInitialized()
                     RewardedAdGate.configure(BuildConfig.UNITY_REWARDED_PLACEMENT_ID)
                 }
-                override fun onInitializationFailed(error: UnityAds.UnityAdsInitializationError, message: String) = Unit
+                override fun onInitializationFailed(error: UnityAds.UnityAdsInitializationError, message: String) {
+                    Log.d("UnityAds", "Init failed: $error — $message")
+                }
             }
         )
 
@@ -71,6 +76,14 @@ class MainActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsState()
                 val pendingDeleteIntent by viewModel.pendingDeleteIntent.collectAsStateWithLifecycle()
                 val pendingWriteIntent by viewModel.pendingWriteIntent.collectAsStateWithLifecycle()
+                val captionState by viewModel.captionState.collectAsStateWithLifecycle()
+                val imageGenState by viewModel.imageGenState.collectAsStateWithLifecycle()
+                LaunchedEffect(imageGenState) {
+                    if (imageGenState is ImageGenState.Error) {
+                        Toast.makeText(toastContext, (imageGenState as ImageGenState.Error).msg, Toast.LENGTH_LONG).show()
+                        viewModel.resetImageGenState()
+                    }
+                }
                 val toastContext = LocalContext.current
                 LaunchedEffect(Unit) {
                     viewModel.userMessage.collect { msg ->
@@ -221,7 +234,11 @@ class MainActivity : ComponentActivity() {
                                             pendingWriteIntent = pendingWriteIntent,
                                             onWriteIntentConsumed = { viewModel.clearPendingWriteIntent() },
                                             onWriteGranted = { viewModel.onWritePermissionGranted() },
-                                            onWriteDenied = { viewModel.onWritePermissionDenied() }
+                                            onWriteDenied = { viewModel.onWritePermissionDenied() },
+                                            captionState = captionState,
+                                            hasOpenRouterKey = viewModel.hasOpenRouterKey,
+                                            onLoadCaption = { id -> viewModel.loadCaption(id) },
+                                            onGenerateCaption = { photo -> viewModel.generateCaption(photo) }
                                         )
                                     }
                                 }

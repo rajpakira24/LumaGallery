@@ -51,6 +51,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.webstudio.lumagallery.data.FolderGroup
 import com.webstudio.lumagallery.data.Photo
+import com.webstudio.lumagallery.ui.viewmodel.CaptionState
 import kotlinx.coroutines.delay
 import me.saket.telephoto.zoomable.rememberZoomableState
 import me.saket.telephoto.zoomable.zoomable
@@ -77,7 +78,11 @@ fun PhotoDetailScreen(
     pendingWriteIntent: PendingIntent? = null,
     onWriteIntentConsumed: () -> Unit = {},
     onWriteGranted: () -> Unit = {},
-    onWriteDenied: () -> Unit = {}
+    onWriteDenied: () -> Unit = {},
+    captionState: CaptionState = CaptionState.None,
+    hasOpenRouterKey: Boolean = false,
+    onLoadCaption: (Long) -> Unit = {},
+    onGenerateCaption: (Photo) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -466,6 +471,10 @@ fun PhotoDetailScreen(
         }
     }
 
+    LaunchedEffect(showDetailsSheet, currentPhoto?.id) {
+        if (showDetailsSheet && currentPhoto != null) onLoadCaption(currentPhoto.id)
+    }
+
     if (showDetailsSheet && currentPhoto != null) {
         ModalBottomSheet(
             onDismissRequest = { showDetailsSheet = false },
@@ -495,6 +504,73 @@ fun PhotoDetailScreen(
                 }
                 DetailRow("Path", currentPhoto.folderPath)
                 DetailRow("Type", currentPhoto.mimeType)
+                if (hasOpenRouterKey || captionState is CaptionState.Loaded) {
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "AI Description",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (captionState is CaptionState.Loaded) {
+                            TextButton(onClick = { onGenerateCaption(currentPhoto) }) {
+                                Text("Regenerate", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                    when (captionState) {
+                        CaptionState.None -> {
+                            OutlinedButton(
+                                onClick = { onGenerateCaption(currentPhoto) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Describe with AI")
+                            }
+                        }
+                        CaptionState.Loading -> {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                        is CaptionState.Loaded -> {
+                            Text(
+                                captionState.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        is CaptionState.Error -> {
+                            Text(
+                                captionState.msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                            TextButton(onClick = { onGenerateCaption(currentPhoto) }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                }
             }
         }
     }

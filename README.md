@@ -20,9 +20,9 @@ A modern Android photo and video gallery built with Jetpack Compose.
 - **Video playback:** Media3 / ExoPlayer 1.5.0
 - **Persistence:** SharedPreferences (`luma_gallery_prefs`) — no Room DB; soft-delete and user state stored per-photo
 - **Permissions:** Accompanist Permissions 0.37.3
-- **Monetization:** Unity LevelPlay (IronSource) 8.4.0
+- **Monetization:** Unity Ads 4.12.4 (banner + rewarded)
 
-Min SDK 24 (Android 7) · Compile/Target SDK 36 · Java 17 · AGP 9.2
+Min SDK 24 (Android 7) · Compile/Target SDK 37 · Java 17 · AGP 9.2
 
 ## Build
 
@@ -49,13 +49,13 @@ Or open the project in Android Studio and run the `app` configuration.
    ```
    sdk.dir=C:\\Path\\To\\Android\\Sdk
    ```
-3. (Optional, for ads) Add your Unity LevelPlay app key to `local.properties`:
+3. (Optional, for ads) Add your Unity Ads IDs to `local.properties`:
    ```
-   IRONSOURCE_APP_KEY=your_key_here
-   TEST_IRONSOURCE_APP_KEY=your_debug_test_key_here
-   # Debug builds use TEST_IRONSOURCE_APP_KEY when it is set; release builds use IRONSOURCE_APP_KEY.
+   UNITY_GAME_ID=your_game_id          # must be registered for bundle com.webstudio.lumagallery
+   UNITY_BANNER_PLACEMENT_ID=Banner_Android
+   UNITY_REWARDED_PLACEMENT_ID=Rewarded_Android
    ```
-   The app reads this via `BuildConfig.IRONSOURCE_APP_KEY` — never commit it.
+   Read via `BuildConfig.UNITY_*`; all default to empty (ads silently skipped) — never commit real IDs.
 
 ## Project Layout
 
