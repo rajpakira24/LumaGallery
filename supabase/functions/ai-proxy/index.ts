@@ -1,3 +1,6 @@
+import { makeGemini, makeOpenRouter } from "./providers.ts";
+import { makeVerifier } from "./integrity.ts";
+
 export interface Deps {
   verifyIntegrity: (token: string, requestHash: string | undefined) => Promise<boolean>;
   callGemini: (op: string, imageB64: string, prompt?: string, maskB64?: string) => Promise<string>;
@@ -45,4 +48,17 @@ export async function handle(reqObj: Request, deps: Deps): Promise<Response> {
     if (msg === "quota") return json(429, { error: "quota" });
     return json(502, { error: "failure", detail: msg });
   }
+}
+
+if (import.meta.main) {
+  const pkg = Deno.env.get("ANDROID_PACKAGE_NAME") ?? "com.webstudio.lumagallery";
+  const verify = makeVerifier(Deno.env.get("PLAY_INTEGRITY_SA") ?? "{}", pkg);
+  const gemini = makeGemini(Deno.env.get("GEMINI_API_KEY") ?? "");
+  const openrouter = makeOpenRouter(Deno.env.get("OPENROUTER_API_KEY") ?? "");
+  const deps: Deps = {
+    verifyIntegrity: verify,
+    callGemini: gemini,
+    callOpenRouter: openrouter,
+  };
+  Deno.serve((r) => handle(r, deps));
 }
