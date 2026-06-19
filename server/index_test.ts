@@ -1,9 +1,12 @@
 import { assertEquals } from "std/assert/mod.ts";
 import { handle } from "./index.ts";
 
+const ALLOW = async () => ({ allowed: true, retryAfterSec: 0 });
+
 // Fakes injected via the deps object
 const deps = {
-  checkRateLimit: async () => true,
+  checkGeneral: ALLOW,
+  checkImage: ALLOW,
   verifyIntegrity: async () => true,
   callGemini: async (_op: string, _img: string, _prompt?: string) => "GEM_B64",
   callOpenRouter: async (_img: string) => "a caption",
@@ -42,11 +45,30 @@ Deno.test("failed attestation is 401", async () => {
   assertEquals(res.status, 401);
 });
 
-Deno.test("rate limited returns 429 before attestation", async () => {
+Deno.test("general rate limit returns 429 with retry_after + header", async () => {
   const res = await handle(
     req({ op: "describe", image_b64: "X", integrity_token: "T" }),
-    { ...deps, checkRateLimit: async () => false },
+    { ...deps, checkGeneral: async () => ({ allowed: false, retryAfterSec: 42 }) },
   );
   assertEquals(res.status, 429);
-  assertEquals(await res.json(), { error: "rate_limited" });
+  assertEquals(res.headers.get("retry-after"), "42");
+  assertEquals(await res.json(), { error: "rate_limited", retry_after: 42 });
+});
+
+Deno.test("image op over image-day budget returns 429 (after attestation)", async () => {
+  const res = await handle(
+    req({ op: "upscale", image_b64: "X", integrity_token: "T" }),
+    { ...deps, checkImage: async () => ({ allowed: false, retryAfterSec: 3600 }) },
+  );
+  assertEquals(res.status, 429);
+  assertEquals(res.headers.get("retry-after"), "3600");
+});
+
+Deno.test("describe is NOT subject to the image-day budget", async () => {
+  // checkImage denies, but describe is not an image op → still succeeds
+  const res = await handle(
+    req({ op: "describe", image_b64: "X", integrity_token: "T" }),
+    { ...deps, checkImage: async () => ({ allowed: false, retryAfterSec: 9999 }) },
+  );
+  assertEquals(res.status, 200);
 });
