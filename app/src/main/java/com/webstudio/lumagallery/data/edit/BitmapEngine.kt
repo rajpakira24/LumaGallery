@@ -2,11 +2,14 @@ package com.webstudio.lumagallery.data.edit
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Typeface
 
 /**
  * Pure bitmap transforms. Every function returns a fresh bitmap; callers own
@@ -115,5 +118,81 @@ object BitmapEngine {
         )
 
         return cm
+    }
+
+    /** Scale-to-fit [src] centered on a transparent square canvas of [size]×[size]. */
+    fun squarePad(src: Bitmap, size: Int = 512): Bitmap {
+        val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(out)
+        val scale = minOf(size.toFloat() / src.width, size.toFloat() / src.height)
+        val w = src.width * scale
+        val h = src.height * scale
+        val left = (size - w) / 2f
+        val top = (size - h) / 2f
+        c.drawBitmap(
+            src,
+            null,
+            RectF(left, top, left + w, top + h),
+            Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        )
+        return out
+    }
+
+    /** White halo/outline behind the subject's alpha silhouette. [strokePx] = halo thickness. */
+    fun whiteOutline(src: Bitmap, strokePx: Float = 12f, color: Int = Color.WHITE): Bitmap {
+        val pad = (strokePx * 1.5f).toInt() + 2
+        val out = Bitmap.createBitmap(src.width + pad * 2, src.height + pad * 2, Bitmap.Config.ARGB_8888)
+        val c = Canvas(out)
+        val alpha = src.extractAlpha() // ALPHA_8 silhouette
+        val silhouettePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = null
+            this.color = color
+        }
+        // Draw the silhouette in [color] at points around a circle -> dilation
+        val steps = 24
+        for (i in 0 until steps) {
+            val a = (2.0 * Math.PI * i / steps)
+            val dx = (Math.cos(a) * strokePx).toFloat() + pad
+            val dy = (Math.sin(a) * strokePx).toFloat() + pad
+            c.drawBitmap(alpha, dx, dy, silhouettePaint)
+        }
+        // Original on top, centered with same pad offset
+        c.drawBitmap(src, pad.toFloat(), pad.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        alpha.recycle()
+        return out
+    }
+
+    /**
+     * Draw [text] centered at ([cx],[cy]) (pixel coords) on a copy of [src].
+     * White text with a contrasting outline for readability.
+     */
+    fun drawText(
+        src: Bitmap,
+        text: String,
+        textSizePx: Float,
+        cx: Float,
+        cy: Float,
+        fillColor: Int = Color.WHITE,
+        strokeColor: Int = Color.BLACK,
+    ): Bitmap {
+        val out = src.copy(Bitmap.Config.ARGB_8888, true)
+        val c = Canvas(out)
+        val base = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = textSizePx
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val stroke = Paint(base).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = textSizePx * 0.12f
+            color = strokeColor
+        }
+        val fill = Paint(base).apply {
+            style = Paint.Style.FILL
+            color = fillColor
+        }
+        c.drawText(text, cx, cy, stroke)
+        c.drawText(text, cx, cy, fill)
+        return out
     }
 }
