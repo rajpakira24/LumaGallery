@@ -22,6 +22,15 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Let the app see/launch WhatsApp to add sticker packs (package visibility, Android 11+) -->
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <intent>
+            <action android:name="com.whatsapp.intent.action.ENABLE_STICKER_PACK" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -50,5 +59,13 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
         <!-- ML Kit Selfie Segmentation (bundled model, no auto-download needed) -->
+
+        <!-- WhatsApp third-party sticker pack provider (read permission scoped to WhatsApp) -->
+        <provider
+            android:name=".stickers.StickerContentProvider"
+            android:authorities="${applicationId}.stickercontentprovider"
+            android:enabled="true"
+            android:exported="true"
+            android:readPermission="com.whatsapp.sticker.READ" />
     </application>
 </manifest>
