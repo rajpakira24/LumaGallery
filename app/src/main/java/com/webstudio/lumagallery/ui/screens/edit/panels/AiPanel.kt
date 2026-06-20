@@ -204,7 +204,7 @@ fun AiPanel(
                         subtitle = "free cutout",
                         onClick = {
                             onSticker()
-                            showStickerImprove = true
+                            // Cloud "Improve" prompt hidden — paid cloud cutout disabled for now
                         }
                     )
                 }
