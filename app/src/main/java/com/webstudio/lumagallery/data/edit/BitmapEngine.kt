@@ -14,6 +14,9 @@ import android.graphics.Rect
  */
 object BitmapEngine {
 
+    /** Cap the longest side of an upscaled bitmap to keep memory bounded. */
+    private const val MAX_UPSCALE_DIMENSION = 4096
+
     fun rotate(src: Bitmap, degrees: Float): Bitmap {
         if (degrees % 360f == 0f) return src.copy(src.config ?: Bitmap.Config.ARGB_8888, true)
         val m = Matrix().apply { postRotate(degrees) }
@@ -35,6 +38,23 @@ object BitmapEngine {
         }
         Canvas(out).drawBitmap(src, 0f, 0f, paint)
         return out
+    }
+
+    /**
+     * Simple on-device 2x upscale (bilinear). Free, no network. Returns a new bitmap.
+     * Caps the longest output side at [MAX_UPSCALE_DIMENSION] to avoid OOM on large
+     * images: if a true 2x would exceed the cap, scales up to fit the cap instead.
+     */
+    fun upscale2x(src: Bitmap): Bitmap {
+        val longestTarget = maxOf(src.width, src.height) * 2
+        val factor = if (longestTarget > MAX_UPSCALE_DIMENSION) {
+            MAX_UPSCALE_DIMENSION.toFloat() / maxOf(src.width, src.height)
+        } else {
+            2f
+        }
+        val outW = (src.width * factor).toInt().coerceAtLeast(1)
+        val outH = (src.height * factor).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(src, outW, outH, true)
     }
 
     /** Blends [overlay] on top of [base], scaling overlay to base dimensions if needed. */

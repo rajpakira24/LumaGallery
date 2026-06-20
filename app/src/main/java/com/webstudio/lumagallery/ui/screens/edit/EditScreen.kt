@@ -3,6 +3,7 @@ package com.webstudio.lumagallery.ui.screens.edit
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
@@ -71,6 +72,25 @@ fun EditScreen(
             onRewarded = action,
             onUnavailable = {
                 Toast.makeText(context, "Rewarded ad is not available right now. Please try again later.", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // Upscale is now an on-device (free) op but stays behind the rewarded-ad gate.
+    // Unlike cloud ops, if no ad is ready we DO NOT block the user — we run the
+    // upscale anyway (after a brief toast) since there is no per-use cost.
+    fun runUpscaleAfterReward(action: () -> Unit) {
+        val activity = context.findActivity()
+        if (activity == null) {
+            action()
+            return
+        }
+        RewardedAdGate.showForReward(
+            activity = activity,
+            onRewarded = action,
+            onUnavailable = {
+                Toast.makeText(context, "Ad unavailable — running upscale anyway.", Toast.LENGTH_SHORT).show()
+                action()
             }
         )
     }
@@ -203,7 +223,7 @@ fun EditScreen(
                         aiEnabled = state.aiEnabled,
                         currentBitmap = editBitmap,
                         onRemoveBackground = { viewModel.aiRemoveBackground() },
-                        onUpscale = { runCloudEditAfterReward { viewModel.aiUpscale() } },
+                        onUpscale = { runUpscaleAfterReward { viewModel.aiUpscale() } },
                         onPromptEdit = { prompt ->
                             runCloudEditAfterReward { viewModel.aiPromptEdit(prompt) }
                         },

@@ -212,11 +212,18 @@ fun AiPanel(
                     AiButton(
                         icon = Icons.Default.ZoomIn,
                         label = "Upscale",
-                        enabled = currentBitmap != null && hasCloud,
-                        subtitle = if (hasCloud) "cloud" else "no key",
+                        // Upscale now runs on-device (free); the rewarded-ad gate is still
+                        // applied in EditScreen, so it no longer depends on cloud (hasCloud).
+                        enabled = currentBitmap != null,
+                        subtitle = "2x on-device",
                         onClick = onUpscale
                     )
                 }
+                // Paid cloud edits (Prompt / cloud edit, Erase / paint mask) hidden for now
+                // to avoid Gemini costs. ViewModel/repository handlers are left intact
+                // (onPromptEdit / onEraseObject still wired) so these can be re-enabled
+                // by un-commenting these items. See EditViewModel.aiPromptEdit / aiEraseObject.
+                /*
                 item {
                     AiButton(
                         icon = Icons.Default.Edit,
@@ -235,6 +242,7 @@ fun AiPanel(
                         onClick = { maskingActive = true }
                     )
                 }
+                */
             }
             Spacer(Modifier.height(6.dp))
             Row(

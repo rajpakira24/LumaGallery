@@ -144,7 +144,13 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
 
     fun aiRemoveBackground() = runAi("Removing background") { src -> aiRepo.removeBackground(src) }
 
-    fun aiUpscale() = runAi("Upscaling") { src -> aiRepo.upscale(src) }
+    /**
+     * On-device 2x upscale (free, no network). The rewarded-ad gate that wraps this
+     * call lives in EditScreen; this method only does the synchronous on-device work
+     * via the shared [applyTransform] path (loading state + undo history).
+     * Cloud upscale (aiRepo.upscale) is intentionally no longer used here.
+     */
+    fun aiUpscale() = applyTransform("Upscaling") { BitmapEngine.upscale2x(it) }
 
     fun aiEraseObject(mask: Bitmap, prompt: String) = runAi("Erasing") { src ->
         aiRepo.eraseObject(src, mask, prompt)
