@@ -3,7 +3,6 @@ package com.webstudio.lumagallery.ui.screens.edit
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
@@ -54,10 +53,12 @@ fun EditScreen(
     photoUri: Uri,
     onNavigateBack: () -> Unit,
     onSaved: (Uri) -> Unit,
+    onOpenStickerPacks: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val viewModel: EditViewModel = viewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val stickerPacks by viewModel.stickerPacks.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -119,30 +120,52 @@ fun EditScreen(
         }
     }
 
-    var showStickerShareDialog by remember { mutableStateOf(false) }
-    var pendingStickerUri by remember { mutableStateOf<Uri?>(null) }
+    // Sticker studio: opened when a cutout is produced (same place stickerUri is set).
+    var showStickerStudio by remember { mutableStateOf(false) }
+    var showPackPicker by remember { mutableStateOf(false) }
     LaunchedEffect(state.stickerUri) {
-        state.stickerUri?.let { uri ->
-            pendingStickerUri = uri
-            showStickerShareDialog = true
+        state.stickerUri?.let {
+            showStickerStudio = true
             viewModel.consumeStickerUri()
         }
     }
 
-    if (showStickerShareDialog && pendingStickerUri != null) {
-        AlertDialog(
-            onDismissRequest = { showStickerShareDialog = false },
-            title = { Text("Sticker saved!") },
-            text = { Text("Add this sticker to WhatsApp?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    shareToWhatsApp(context, pendingStickerUri!!)
-                    showStickerShareDialog = false
-                }) { Text("Add to WhatsApp") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStickerShareDialog = false }) { Text("Done") }
+    // Confirmation snackbar (with "Open Sticker Packs" action) after adding to a pack.
+    LaunchedEffect(state.stickerAddedMessage) {
+        state.stickerAddedMessage?.let { msg ->
+            viewModel.consumeStickerAddedMessage()
+            showPackPicker = false
+            showStickerStudio = false
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = "Open Sticker Packs",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                onOpenStickerPacks()
             }
+        }
+    }
+
+    if (showStickerStudio) {
+        StickerStudioDialog(
+            stickerBitmap = state.stickerBitmap,
+            onAddOutline = { viewModel.applyStickerOutline() },
+            onAddText = { viewModel.applyStickerText(it) },
+            onAddToPack = {
+                viewModel.refreshStickerPacks()
+                showPackPicker = true
+            },
+            onDismiss = { showStickerStudio = false }
+        )
+    }
+
+    if (showPackPicker) {
+        PackPickerDialog(
+            packs = stickerPacks,
+            onPickPack = { id -> viewModel.addStickerToPack(id) },
+            onCreatePack = { name -> viewModel.createPackAndAdd(name) },
+            onDismiss = { showPackPicker = false }
         )
     }
 
@@ -333,21 +356,132 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-private fun shareToWhatsApp(context: Context, uri: Uri) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "image/png"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        setPackage("com.whatsapp")
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    try {
-        context.startActivity(intent)
-    } catch (e: android.content.ActivityNotFoundException) {
-        val fallback = Intent(Intent.ACTION_SEND).apply {
-            type = "image/png"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+@Composable
+private fun StickerStudioDialog(
+    stickerBitmap: Bitmap?,
+    onAddOutline: () -> Unit,
+    onAddText: (String) -> Unit,
+    onAddToPack: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sticker studio") },
+        text = {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (stickerBitmap != null && !stickerBitmap.isRecycled) {
+                        Image(
+                            bitmap = stickerBitmap.asImageBitmap(),
+                            contentDescription = "Sticker preview",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onAddOutline,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Add white outline") }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    label = { Text("Caption text") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = { onAddText(text); text = "" },
+                    enabled = text.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Add text") }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onAddToPack, enabled = stickerBitmap != null) {
+                Text("Add to pack")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Done") }
         }
-        context.startActivity(Intent.createChooser(fallback, "Share sticker via"))
-    }
+    )
+}
+
+@Composable
+private fun PackPickerDialog(
+    packs: List<com.webstudio.lumagallery.data.sticker.StickerPack>,
+    onPickPack: (String) -> Unit,
+    onCreatePack: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var creating by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (creating) "New pack" else "Add to pack") },
+        text = {
+            if (creating) {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    singleLine = true,
+                    label = { Text("Pack name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Column {
+                    if (packs.isEmpty()) {
+                        Text(
+                            "No packs yet. Create one below.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        packs.forEach { pack ->
+                            TextButton(
+                                onClick = { onPickPack(pack.identifier) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "${pack.name}  (${pack.stickers.size})",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { creating = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("New pack") }
+                }
+            }
+        },
+        confirmButton = {
+            if (creating) {
+                TextButton(
+                    onClick = { if (newName.isNotBlank()) onCreatePack(newName.trim()) },
+                    enabled = newName.isNotBlank()
+                ) { Text("Create & add") }
+            } else {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+        dismissButton = {
+            if (creating) {
+                TextButton(onClick = { creating = false }) { Text("Back") }
+            }
+        }
+    )
 }

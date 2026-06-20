@@ -13,6 +13,8 @@ import com.webstudio.lumagallery.data.edit.BitmapEngine
 import com.webstudio.lumagallery.data.edit.EditHistory
 import com.webstudio.lumagallery.data.edit.FilterPreset
 import com.webstudio.lumagallery.data.edit.PhotoIO
+import com.webstudio.lumagallery.data.sticker.StickerPack
+import com.webstudio.lumagallery.data.sticker.StickerPackRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +34,9 @@ data class EditUiState(
     val errorMessage: String? = null,
     val infoMessage: String? = null,
     val aiEnabled: Boolean = false,
-    val stickerUri: Uri? = null
+    val stickerUri: Uri? = null,
+    val stickerBitmap: Bitmap? = null,
+    val stickerAddedMessage: String? = null
 ) {
     val displayBitmap: Bitmap? get() = previewBitmap ?: bitmap
     val isBusy: Boolean get() = isLoading || processingLabel != null
@@ -41,6 +45,7 @@ data class EditUiState(
 class EditViewModel(application: Application) : AndroidViewModel(application) {
 
     private val aiRepo = AiEditRepository(application)
+    private val stickerRepo = StickerPackRepository(getApplication())
     private val history = EditHistory()
 
     private val _uiState = MutableStateFlow(
@@ -49,6 +54,9 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
+
+    private val _stickerPacks = MutableStateFlow<List<StickerPack>>(emptyList())
+    val stickerPacks: StateFlow<List<StickerPack>> = _stickerPacks.asStateFlow()
 
     private var loadedUri: Uri? = null
 
@@ -184,7 +192,8 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                     canRedo = history.canRedo,
                     isModified = true,
                     processingLabel = null,
-                    stickerUri = savedUri
+                    stickerUri = savedUri,
+                    stickerBitmap = sticker
                 )
             } catch (e: Exception) {
                 Log.d(TAG, "createOnDeviceSticker failed", e)
@@ -194,6 +203,77 @@ class EditViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+    }
+
+    // ---------- Sticker studio (outline / text / add-to-pack) ----------
+
+    /** Add a white halo/outline behind the current sticker cutout. */
+    fun applyStickerOutline() {
+        val src = _uiState.value.stickerBitmap ?: return
+        viewModelScope.launch {
+            val out = withContext(Dispatchers.Default) { BitmapEngine.whiteOutline(src) }
+            _uiState.value = _uiState.value.copy(stickerBitmap = out)
+        }
+    }
+
+    /** Draw [text] near the bottom of the current sticker cutout. */
+    fun applyStickerText(text: String) {
+        val src = _uiState.value.stickerBitmap ?: return
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            val out = withContext(Dispatchers.Default) {
+                BitmapEngine.drawText(
+                    src,
+                    text,
+                    src.height * 0.12f,
+                    src.width / 2f,
+                    src.height * 0.9f
+                )
+            }
+            _uiState.value = _uiState.value.copy(stickerBitmap = out)
+        }
+    }
+
+    /** Load the current packs into [stickerPacks]. Call when opening the picker. */
+    fun refreshStickerPacks() {
+        viewModelScope.launch {
+            val packs = withContext(Dispatchers.IO) { stickerRepo.loadPacks() }
+            _stickerPacks.value = packs
+        }
+    }
+
+    /** Create a new pack named [name] and add the current sticker to it. */
+    fun createPackAndAdd(name: String) {
+        val sticker = _uiState.value.stickerBitmap ?: return
+        viewModelScope.launch {
+            val pack = withContext(Dispatchers.IO) {
+                val p = stickerRepo.createPack(name)
+                stickerRepo.addSticker(p.identifier, sticker)
+                p
+            }
+            _stickerPacks.value = withContext(Dispatchers.IO) { stickerRepo.loadPacks() }
+            _uiState.value = _uiState.value.copy(
+                stickerAddedMessage = "Added to \"${pack.name}\""
+            )
+        }
+    }
+
+    /** Add the current sticker to an existing pack. */
+    fun addStickerToPack(packId: String) {
+        val sticker = _uiState.value.stickerBitmap ?: return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { stickerRepo.addSticker(packId, sticker) }
+            val packs = withContext(Dispatchers.IO) { stickerRepo.loadPacks() }
+            _stickerPacks.value = packs
+            val name = packs.find { it.identifier == packId }?.name ?: "pack"
+            _uiState.value = _uiState.value.copy(
+                stickerAddedMessage = "Added to \"$name\""
+            )
+        }
+    }
+
+    fun consumeStickerAddedMessage() {
+        _uiState.value = _uiState.value.copy(stickerAddedMessage = null)
     }
 
     private fun runAi(label: String, op: suspend (Bitmap) -> AiResult) {

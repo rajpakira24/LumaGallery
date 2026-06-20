@@ -24,4 +24,6 @@ sealed class Screen(val route: String) {
     object EditPhoto : Screen("edit_photo/{photoId}") {
         fun createRoute(photoId: Long) = "edit_photo/$photoId"
     }
+
+    object StickerPacks : Screen("sticker_packs")
 }

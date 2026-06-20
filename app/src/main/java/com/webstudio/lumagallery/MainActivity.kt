@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity() {
                 val pendingDeleteIntent by viewModel.pendingDeleteIntent.collectAsStateWithLifecycle()
                 val pendingWriteIntent by viewModel.pendingWriteIntent.collectAsStateWithLifecycle()
                 val captionState by viewModel.captionState.collectAsStateWithLifecycle()
+                val toastContext = LocalContext.current
                 val imageGenState by viewModel.imageGenState.collectAsStateWithLifecycle()
                 LaunchedEffect(imageGenState) {
                     if (imageGenState is ImageGenState.Error) {
@@ -84,7 +85,6 @@ class MainActivity : ComponentActivity() {
                         viewModel.resetImageGenState()
                     }
                 }
-                val toastContext = LocalContext.current
                 LaunchedEffect(Unit) {
                     viewModel.userMessage.collect { msg ->
                         Toast.makeText(toastContext, msg, Toast.LENGTH_SHORT).show()
@@ -149,6 +149,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onHiddenCollectionClick = {
                                     navController.navigate(Screen.HiddenCollection.route)
+                                },
+                                onStickerPacksClick = {
+                                    navController.navigate(Screen.StickerPacks.route)
                                 },
                                 onBulkMoveToRecycleBin = { ids -> viewModel.bulkMoveToRecycleBin(ids) },
                                 onBulkToggleHidden = { ids -> viewModel.bulkToggleHidden(ids) },
@@ -307,12 +310,31 @@ class MainActivity : ComponentActivity() {
                                             onSaved = {
                                                 viewModel.onMediaCreated()
                                                 navController.popBackStack()
+                                            },
+                                            onOpenStickerPacks = {
+                                                navController.navigate(Screen.StickerPacks.route)
                                             }
                                         )
                                     }
                                 }
                                 else -> {}
                             }
+                        }
+
+                        composable(
+                            route = Screen.StickerPacks.route,
+                            enterTransition = {
+                                fadeIn(animationSpec = tween(280)) +
+                                        scaleIn(initialScale = 0.94f, animationSpec = tween(280))
+                            },
+                            exitTransition = {
+                                fadeOut(animationSpec = tween(220)) +
+                                        scaleOut(targetScale = 0.96f, animationSpec = tween(220))
+                            }
+                        ) {
+                            StickerPackScreen(
+                                onBack = { navController.popBackStack() }
+                            )
                         }
 
                         composable(

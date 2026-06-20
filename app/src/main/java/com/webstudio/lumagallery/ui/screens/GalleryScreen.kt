@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.*
@@ -78,6 +79,7 @@ fun GalleryScreen(
     onViewModeChange: (ViewMode) -> Unit = {},
     onRecentlyDeletedClick: () -> Unit = {},
     onHiddenCollectionClick: () -> Unit = {},
+    onStickerPacksClick: () -> Unit = {},
     onBulkMoveToRecycleBin: (Set<Long>) -> Unit = {},
     onBulkToggleHidden: (Set<Long>) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -351,6 +353,7 @@ fun GalleryScreen(
                                     onFolderClick = onFolderClick,
                                     onRecentlyDeletedClick = onRecentlyDeletedClick,
                                     onHiddenCollectionClick = onHiddenCollectionClick,
+                                    onStickerPacksClick = onStickerPacksClick,
                                     modifier = modifier
                                 )
                             }
@@ -554,6 +557,7 @@ private fun CollectionsTabContent(
     onFolderClick: (String) -> Unit,
     onRecentlyDeletedClick: () -> Unit,
     onHiddenCollectionClick: () -> Unit,
+    onStickerPacksClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var filter by remember { mutableStateOf(FolderFilter.ALL) }
@@ -666,6 +670,16 @@ private fun CollectionsTabContent(
                 onClick = onHiddenCollectionClick
             )
         }
+
+        item(key = "sticker_packs") {
+            SpecialFolderCard(
+                title = "Sticker Packs",
+                count = 0,
+                icon = Icons.AutoMirrored.Filled.StickyNote2,
+                onClick = onStickerPacksClick,
+                showCount = false
+            )
+        }
     }
 }
 
@@ -745,7 +759,8 @@ private fun SpecialFolderCard(
     title: String,
     count: Int,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showCount: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isDark = isSystemInDarkTheme()
@@ -812,7 +827,7 @@ private fun SpecialFolderCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "$count items",
+                    text = if (showCount) "$count items" else "Manage WhatsApp stickers",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
